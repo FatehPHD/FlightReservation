@@ -1,3 +1,4 @@
+// File: businesslogic/entities/Flight.java
 package businesslogic.entities;
 
 import java.time.LocalDateTime;
@@ -6,6 +7,7 @@ import businesslogic.entities.enums.FlightStatus;
 
 public class Flight {
 
+    private int flightId;
     private String flightNumber;
     private LocalDateTime departureTime;
     private LocalDateTime arrivalTime;
@@ -14,6 +16,7 @@ public class Flight {
     private double price;
     private Aircraft aircraft;
     private Route route;
+    private Airline airline; // NEW
 
     public Flight() {
     }
@@ -35,6 +38,14 @@ public class Flight {
         this.price = price;
         this.aircraft = aircraft;
         this.route = route;
+    }
+
+    public int getFlightId() {
+        return flightId;
+    }
+
+    public void setFlightId(int flightId) {
+        this.flightId = flightId;
     }
 
     public String getFlightNumber() {
@@ -101,17 +112,27 @@ public class Flight {
         this.route = route;
     }
 
+    public Airline getAirline() {
+        return airline;
+    }
+
+    public void setAirline(Airline airline) {
+        this.airline = airline;
+    }
+
     @Override
     public String toString() {
         return "Flight{" +
-               "flightNumber='" + flightNumber + '\'' +
-               ", departureTime=" + departureTime +
-               ", arrivalTime=" + arrivalTime +
-               ", status=" + status +
-               ", availableSeats=" + availableSeats +
-               ", price=" + price +
-               ", aircraft=" + (aircraft != null ? aircraft.getModel() : "null") +
-               ", route=" + (route != null ? route.getOrigin() + "->" + route.getDestination() : "null") +
-               '}';
+                "flightId=" + flightId +
+                ", flightNumber='" + flightNumber + '\'' +
+                ", departureTime=" + departureTime +
+                ", arrivalTime=" + arrivalTime +
+                ", status=" + status +
+                ", availableSeats=" + availableSeats +
+                ", price=" + price +
+                ", aircraft=" + (aircraft != null ? aircraft.getModel() : "null") +
+                ", route=" + (route != null ? route.getOrigin() + "->" + route.getDestination() : "null") +
+                ", airline=" + (airline != null ? airline.getName() : "null") +
+                '}';
     }
 }
