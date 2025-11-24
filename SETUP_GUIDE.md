@@ -150,7 +150,11 @@ Step 5: Run Tests (Optional)
         # Test Route DAO
         java -cp ".:lib/mysql-connector-j-9.0.0.jar" tests.TestRouteDAO
         ```
-
+    Run Main:
+        ```bash
+        
+        java -cp ".:lib/mysql-connector-j-9.0.0.jar" gui.MainApp
+        '''
 ---
 
 Troubleshooting

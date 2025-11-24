@@ -15,27 +15,21 @@ public class SignupView extends JPanel {
 
     public SignupView(ViewManager viewManager) {
         this.viewManager = viewManager;
-        
-        // Get CustomerService from ViewManager (which gets it from ServiceManager)
+
+        // Get CustomerService
         this.customerService = viewManager.getCustomerService();
-        
+
         setLayout(new GridBagLayout());
 
         JLabel title = new JLabel("Create Account");
         title.setFont(new Font("Arial", Font.BOLD, 24));
 
-        JTextField usernameField = new JTextField(25);
-        usernameField.setPreferredSize(new Dimension(300, 30));
-        JTextField emailField = new JTextField(25);
-        emailField.setPreferredSize(new Dimension(300, 30));
-        JTextField firstNameField = new JTextField(25);
-        firstNameField.setPreferredSize(new Dimension(300, 30));
-        JTextField lastNameField = new JTextField(25);
-        lastNameField.setPreferredSize(new Dimension(300, 30));
-        JPasswordField passwordField = new JPasswordField(25);
-        passwordField.setPreferredSize(new Dimension(300, 30));
-        JPasswordField confirmPasswordField = new JPasswordField(25);
-        confirmPasswordField.setPreferredSize(new Dimension(300, 30));
+        JTextField usernameField = new JTextField();
+        JTextField emailField = new JTextField();
+        JTextField firstNameField = new JTextField();
+        JTextField lastNameField = new JTextField();
+        JPasswordField passwordField = new JPasswordField();
+        JPasswordField confirmPasswordField = new JPasswordField();
 
         JButton createBtn = new JButton("Sign Up");
         JButton backBtn = new JButton("Back to Login");
@@ -44,40 +38,66 @@ public class SignupView extends JPanel {
         gbc.insets = new Insets(8, 8, 8, 8);
         gbc.gridx = 0;
         gbc.gridy = 0;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weightx = 0;
 
+        // TITLE
         add(title, gbc);
 
+        // Utility method to add label + field in same formatting
+        gbc.ipadx = 200; // Same width as LoginView text fields
+
         gbc.gridy++;
+        gbc.ipadx = 0;
         add(new JLabel("Username:"), gbc);
+
         gbc.gridy++;
+        gbc.ipadx = 200;
         add(usernameField, gbc);
 
         gbc.gridy++;
+        gbc.ipadx = 0;
         add(new JLabel("Email:"), gbc);
+
         gbc.gridy++;
+        gbc.ipadx = 200;
         add(emailField, gbc);
 
         gbc.gridy++;
+        gbc.ipadx = 0;
         add(new JLabel("First Name:"), gbc);
+
         gbc.gridy++;
+        gbc.ipadx = 200;
         add(firstNameField, gbc);
 
         gbc.gridy++;
+        gbc.ipadx = 0;
         add(new JLabel("Last Name:"), gbc);
+
         gbc.gridy++;
+        gbc.ipadx = 200;
         add(lastNameField, gbc);
 
         gbc.gridy++;
+        gbc.ipadx = 0;
         add(new JLabel("Password:"), gbc);
+
         gbc.gridy++;
+        gbc.ipadx = 200;
         add(passwordField, gbc);
 
         gbc.gridy++;
+        gbc.ipadx = 0;
         add(new JLabel("Confirm Password:"), gbc);
-        gbc.gridy++;
-        add(confirmPasswordField, gbc);
 
         gbc.gridy++;
+        gbc.ipadx = 200;
+        add(confirmPasswordField, gbc);
+
+        // Buttons — no expansion
+        gbc.gridy++;
+        gbc.ipadx = 0;
         add(createBtn, gbc);
 
         gbc.gridy++;
@@ -92,19 +112,18 @@ public class SignupView extends JPanel {
             String pass = new String(passwordField.getPassword());
             String confirm = new String(confirmPasswordField.getPassword());
 
-            // Validation
-            if (username.isEmpty() || email.isEmpty() || firstName.isEmpty() || 
+            if (username.isEmpty() || email.isEmpty() || firstName.isEmpty() ||
                 lastName.isEmpty() || pass.isEmpty()) {
-                JOptionPane.showMessageDialog(this, 
-                    "Please fill all required fields.", "Error",
-                    JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this,
+                        "Please fill all required fields.", "Error",
+                        JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
             if (!pass.equals(confirm)) {
                 JOptionPane.showMessageDialog(this,
-                    "Passwords do not match!", "Error",
-                    JOptionPane.ERROR_MESSAGE);
+                        "Passwords do not match!", "Error",
+                        JOptionPane.ERROR_MESSAGE);
                 passwordField.setText("");
                 confirmPasswordField.setText("");
                 return;
@@ -112,49 +131,35 @@ public class SignupView extends JPanel {
 
             if (pass.length() < 4) {
                 JOptionPane.showMessageDialog(this,
-                    "Password must be at least 4 characters long.", "Error",
-                    JOptionPane.ERROR_MESSAGE);
+                        "Password must be at least 4 characters long.", "Error",
+                        JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            // Create customer account
             try {
                 Customer customer = customerService.createCustomer(
-                    username, pass, email, firstName, lastName,
-                    null, // phone (optional)
-                    null, // address (optional)
-                    null  // dateOfBirth (optional)
+                        username, pass, email, firstName, lastName,
+                        null, null, null
                 );
-                
+
                 JOptionPane.showMessageDialog(this,
-                    "Account created successfully! Welcome, " + customer.getFirstName() + ".",
-                    "Success", JOptionPane.INFORMATION_MESSAGE);
-                
-                // Clear fields
-                usernameField.setText("");
-                emailField.setText("");
-                firstNameField.setText("");
-                lastNameField.setText("");
-                passwordField.setText("");
-                confirmPasswordField.setText("");
-                
-                // Navigate back to login
+                        "Account created successfully! Welcome, " + customer.getFirstName() + ".",
+                        "Success", JOptionPane.INFORMATION_MESSAGE);
+
                 viewManager.showView("LOGIN", new LoginView(viewManager));
-                
+
             } catch (IllegalStateException ex) {
-                // Username already exists
                 JOptionPane.showMessageDialog(this,
-                    "Username already exists. Please choose a different username.",
-                    "Error", JOptionPane.ERROR_MESSAGE);
-                usernameField.setText("");
+                        "Username already exists. Please choose a different one.",
+                        "Error", JOptionPane.ERROR_MESSAGE);
             } catch (IllegalArgumentException ex) {
                 JOptionPane.showMessageDialog(this,
-                    ex.getMessage(), "Error",
-                    JOptionPane.ERROR_MESSAGE);
+                        ex.getMessage(), "Error",
+                        JOptionPane.ERROR_MESSAGE);
             } catch (SQLException ex) {
                 JOptionPane.showMessageDialog(this,
-                    "Database error: " + ex.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
+                        "Database error: " + ex.getMessage(),
+                        "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 

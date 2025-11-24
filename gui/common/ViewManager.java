@@ -27,15 +27,26 @@ public class ViewManager {
         // Check if a component with this name already exists in the container
         boolean exists = false;
         for (Component comp : container.getComponents()) {
-            if (comp == panel) {
-                exists = true;
-                break;
+            // Check if this component is already in the container with this name
+            // We'll check by trying to find it in the layout
+            if (comp instanceof JScrollPane) {
+                JScrollPane scrollPane = (JScrollPane) comp;
+                // If the view inside matches, we've already added this panel
+                if (scrollPane.getViewport().getView() == panel) {
+                    exists = true;
+                    break;
+                }
             }
         }
         
-        // Only add if it's a new panel instance
+        // If it doesn't exist, wrap the panel in a scroll pane and add it
         if (!exists) {
-            container.add(panel, name);
+            JScrollPane scrollPane = new JScrollPane(panel);
+            scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+            scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+            scrollPane.setBorder(null); // Remove border for cleaner look
+            scrollPane.getViewport().setBackground(panel.getBackground()); // Match background
+            container.add(scrollPane, name);
         }
         
         // Show the view
