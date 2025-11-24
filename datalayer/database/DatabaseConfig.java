@@ -12,7 +12,7 @@ public final class DatabaseConfig {
 
     // Change these to your actual MySQL username/password
     public static final String DB_USER = "root";
-    public static final String DB_PASSWORD = "root123";
+    public static final String DB_PASSWORD = "";
 
     public static final String DB_URL =
             "jdbc:mysql://" + DB_HOST + ":" + DB_PORT + "/" + DB_NAME

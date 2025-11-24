@@ -1,295 +1,361 @@
-// File: tests/TestReservationDAO.java
 package tests;
 
+import businesslogic.entities.Reservation;
 import businesslogic.entities.Customer;
 import businesslogic.entities.Flight;
 import businesslogic.entities.Payment;
-import businesslogic.entities.Reservation;
 import businesslogic.entities.enums.ReservationStatus;
+import businesslogic.entities.enums.UserRole;
 import datalayer.dao.ReservationDAO;
-import datalayer.database.DatabaseConnection;
 import datalayer.impl.ReservationDAOImpl;
+import datalayer.database.DatabaseConnection;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 public class TestReservationDAO {
 
     public static void main(String[] args) {
-        ReservationDAO reservationDAO = new ReservationDAOImpl();
-        DatabaseConnection db = DatabaseConnection.getInstance();
+        try {
+            // Ensure dependencies exist
+            int customerId = ensureTestCustomerExists();
+            int flightId = ensureTestFlightExists();
+            int paymentId = ensureTestPaymentExists();
 
-        try (Connection conn = db.getConnection()) {
+            ReservationDAO reservationDAO = new ReservationDAOImpl();
 
-            conn.setAutoCommit(false);
-            try {
-                // ---------- CLEAN TABLES ----------
-                System.out.println("==== CLEANING TABLES ====");
-                try (Statement st = conn.createStatement()) {
-                    st.executeUpdate("DELETE FROM reservations");
-                    st.executeUpdate("DELETE FROM tickets");
-                    st.executeUpdate("DELETE FROM payments");
-                    st.executeUpdate("DELETE FROM flights");
-                    st.executeUpdate("DELETE FROM routes");
-                    st.executeUpdate("DELETE FROM airports");
-                    st.executeUpdate("DELETE FROM airlines");
-                    st.executeUpdate("DELETE FROM aircraft");
-                    st.executeUpdate("DELETE FROM users");
-                }
+            System.out.println("==== TEST: SAVE ====");
+            Reservation reservation = new Reservation(
+                    0, // ID will be generated
+                    LocalDateTime.now(),
+                    ReservationStatus.PENDING,
+                    599.98,
+                    getCustomerById(customerId),
+                    getFlightById(flightId),
+                    getPaymentById(paymentId),
+                    new ArrayList<>() // Seats will be empty for now
+            );
 
-                // ---------- INSERT DEPENDENCIES ----------
-                System.out.println("\n==== INSERTING DEPENDENCIES ====");
-                int customerId = insertTestCustomer(conn);
-                System.out.println("Customer ID: " + customerId);
+            Reservation saved = reservationDAO.save(reservation);
+            System.out.println("Saved reservation with ID: " + saved.getReservationId());
+            System.out.println("Reservation: " + saved);
 
-                int aircraftId = insertTestAircraft(conn);
-                System.out.println("Aircraft ID: " + aircraftId);
+            System.out.println("\n==== TEST: FIND BY ID ====");
+            Reservation found = reservationDAO.findById(saved.getReservationId());
+            System.out.println("Found reservation: " + found);
 
-                int airlineId = insertTestAirline(conn);
-                System.out.println("Airline ID: " + airlineId);
-
-                insertTestAirports(conn);
-                System.out.println("Inserted airports YYC and YVR");
-
-                int routeId = insertTestRoute(conn);
-                System.out.println("Route ID: " + routeId);
-
-                int flightId = insertTestFlight(conn, aircraftId, airlineId, routeId);
-                System.out.println("Flight ID: " + flightId);
-
-                int paymentId = insertTestPayment(conn);
-                System.out.println("Payment ID: " + paymentId);
-
-                conn.commit();
-
-                // ---------- BUILD RESERVATION ENTITY ----------
-                Customer customer = new Customer();
-                customer.setUserId(customerId);
-
-                Flight flight = new Flight();
-                flight.setFlightId(flightId);
-
-                Payment payment = new Payment();
-                payment.setPaymentId(paymentId);
-
-                Reservation reservation = new Reservation();
-                reservation.setBookingDate(LocalDateTime.now());
-                reservation.setStatus(ReservationStatus.PENDING);
-                reservation.setTotalPrice(500.00);
-                reservation.setCustomer(customer);
-                reservation.setFlight(flight);
-                reservation.setPayment(payment);
-
-                // ---------- TEST: SAVE ----------
-                System.out.println("\n==== TEST: SAVE ====");
-                Reservation saved = reservationDAO.save(reservation);
-                System.out.println("Saved reservation with ID: " + saved.getReservationId());
-
-                // ---------- TEST: FIND BY ID ----------
-                System.out.println("\n==== TEST: FIND BY ID ====");
-                Reservation found = reservationDAO.findById(saved.getReservationId());
-                if (found != null) {
-                    System.out.println("Found reservation:");
-                    System.out.println("  ID: " + found.getReservationId());
-                    System.out.println("  Status: " + found.getStatus());
-                    System.out.println("  Total Price: " + found.getTotalPrice());
-                    System.out.println("  Customer ID: " +
-                            (found.getCustomer() != null ? found.getCustomer().getUserId() : "null"));
-                    System.out.println("  Flight ID: " +
-                            (found.getFlight() != null ? found.getFlight().getFlightId() : "null"));
-                } else {
-                    System.out.println("Reservation not found.");
-                }
-
-                // ---------- TEST: UPDATE ----------
-                System.out.println("\n==== TEST: UPDATE ====");
-                found.setStatus(ReservationStatus.CONFIRMED);
-                boolean updateOk = reservationDAO.update(found);
-                System.out.println("Update success: " + updateOk);
-                Reservation updated = reservationDAO.findById(found.getReservationId());
-                System.out.println("Updated reservation status: " +
-                        (updated != null ? updated.getStatus() : "null"));
-
-                // ---------- TEST: FIND BY CUSTOMER ----------
-                System.out.println("\n==== TEST: FIND BY CUSTOMER ====");
-                List<Reservation> customerReservations =
-                        reservationDAO.findByCustomerId(customerId);
-                System.out.println("Reservations for customer " + customerId + ": "
-                        + customerReservations.size());
-
-                // ---------- TEST: DELETE ----------
-                System.out.println("\n==== TEST: DELETE ====");
-                boolean deleteOk = reservationDAO.delete(updated.getReservationId());
-                System.out.println("Delete success: " + deleteOk);
-                Reservation deleted = reservationDAO.findById(updated.getReservationId());
-                System.out.println("After delete, findById returns: " + deleted);
-
-            } catch (SQLException e) {
-                conn.rollback();
-                e.printStackTrace();
-            } finally {
-                conn.setAutoCommit(true);
+            System.out.println("\n==== TEST: FIND BY CUSTOMER ID ====");
+            List<Reservation> byCustomer = reservationDAO.findByCustomerId(customerId);
+            System.out.println("Reservations for customer " + customerId + ": " + byCustomer.size());
+            for (Reservation r : byCustomer) {
+                System.out.println("  " + r);
             }
 
-        } catch (SQLException e) {
+            System.out.println("\n==== TEST: FIND BY FLIGHT ID ====");
+            List<Reservation> byFlight = reservationDAO.findByFlightId(flightId);
+            System.out.println("Reservations for flight " + flightId + ": " + byFlight.size());
+            for (Reservation r : byFlight) {
+                System.out.println("  " + r);
+            }
+
+            System.out.println("\n==== TEST: UPDATE ====");
+            found.setStatus(ReservationStatus.CONFIRMED);
+            boolean updated = reservationDAO.update(found);
+            System.out.println("Update result: " + updated);
+
+            Reservation updatedFromDb = reservationDAO.findById(found.getReservationId());
+            System.out.println("Updated reservation from DB: " + updatedFromDb);
+
+            System.out.println("\n==== TEST: FIND ALL ====");
+            List<Reservation> all = reservationDAO.findAll();
+            System.out.println("Total reservations in DB: " + all.size());
+            for (Reservation r : all) {
+                System.out.println(r);
+            }
+
+            System.out.println("\n==== TEST: DELETE ====");
+            boolean deleted = reservationDAO.delete(found.getReservationId());
+            System.out.println("Delete result: " + deleted);
+
+            Reservation afterDelete = reservationDAO.findById(found.getReservationId());
+            System.out.println("Find after delete (should be null): " + afterDelete);
+
+            System.out.println("\n==== TESTS COMPLETED ====");
+
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    // ----------------------------------------------------------------------
-    // Helper methods to insert minimal data into each table
-    // ----------------------------------------------------------------------
+    private static int ensureTestCustomerExists() throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        String checkSql = "SELECT user_id FROM users WHERE username = 'testcustomer' LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(checkSql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt("user_id");
+            }
+        }
 
-    private static int insertTestCustomer(Connection conn) throws SQLException {
-        String sql = "INSERT INTO users " +
-                "(username, password_hash, email, role, first_name, last_name, membership_status) " +
-                "VALUES (?, ?, ?, 'CUSTOMER', ?, ?, 'REGULAR')";
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, "test_customer");
+        String insertSql = "INSERT INTO users (username, password_hash, email, role, first_name, last_name, " +
+                          "phone, address, date_of_birth, membership_status) " +
+                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(insertSql, PreparedStatement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, "testcustomer");
             ps.setString(2, "password123");
-            ps.setString(3, "test.customer@example.com");
-            ps.setString(4, "Test");
-            ps.setString(5, "Customer");
+            ps.setString(3, "test@example.com");
+            ps.setString(4, "CUSTOMER");
+            ps.setString(5, "Test");
+            ps.setString(6, "Customer");
+            ps.setString(7, "555-0000");
+            ps.setString(8, "Test Address");
+            ps.setDate(9, java.sql.Date.valueOf(LocalDate.of(1990, 1, 1)));
+            ps.setString(10, "REGULAR");
             ps.executeUpdate();
-
-            try (ResultSet rs = ps.getGeneratedKeys()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) {
+                    return keys.getInt(1);
                 }
             }
         }
-        throw new SQLException("Failed to insert test customer");
+        throw new SQLException("Failed to create test customer");
     }
 
-    private static int insertTestAircraft(Connection conn) throws SQLException {
-        String sql = "INSERT INTO aircraft " +
-                "(model, manufacturer, total_seats, seat_configuration, status) " +
-                "VALUES (?, ?, ?, ?, 'ACTIVE')";
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, "737-800");
-            ps.setString(2, "Boeing");
-            ps.setInt(3, 180);
-            ps.setString(4, "3-3");
-            ps.executeUpdate();
+    private static int ensureTestFlightExists() throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
 
-            try (ResultSet rs = ps.getGeneratedKeys()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
+        // Ensure dependencies
+        ensureTestDependencies(conn);
+
+        String checkSql = "SELECT flight_id FROM flights WHERE flight_number = 'AC-RES-001' LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(checkSql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt("flight_id");
+            }
+        }
+
+        String insertSql = "INSERT INTO flights (flight_number, departure_time, arrival_time, " +
+                          "status, available_seats, price, aircraft_id, route_id, airline_id) " +
+                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(insertSql, PreparedStatement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, "AC-RES-001");
+            ps.setTimestamp(2, java.sql.Timestamp.valueOf(LocalDateTime.now().plusDays(1)));
+            ps.setTimestamp(3, java.sql.Timestamp.valueOf(LocalDateTime.now().plusDays(1).plusHours(3)));
+            ps.setString(4, "SCHEDULED");
+            ps.setInt(5, 150);
+            ps.setDouble(6, 299.99);
+            ps.setInt(7, getAircraftId(conn));
+            ps.setInt(8, getRouteId(conn));
+            ps.setInt(9, getAirlineId(conn));
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) {
+                    return keys.getInt(1);
                 }
             }
         }
-        throw new SQLException("Failed to insert test aircraft");
+        throw new SQLException("Failed to create test flight");
     }
 
-    private static int insertTestAirline(Connection conn) throws SQLException {
-        String sql = "INSERT INTO airlines " +
-                "(name, code, country) VALUES (?, ?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, "Reservation Test Airline");
-            ps.setString(2, "RT");
-            ps.setString(3, "Canada");
-            ps.executeUpdate();
+    private static int ensureTestPaymentExists() throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        String checkSql = "SELECT payment_id FROM payments WHERE transaction_id = 'TEST-TXN-001' LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(checkSql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt("payment_id");
+            }
+        }
 
-            try (ResultSet rs = ps.getGeneratedKeys()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
+        String insertSql = "INSERT INTO payments (amount, payment_date, payment_method, transaction_id, status) " +
+                          "VALUES (?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(insertSql, PreparedStatement.RETURN_GENERATED_KEYS)) {
+            ps.setDouble(1, 599.98);
+            ps.setTimestamp(2, java.sql.Timestamp.valueOf(LocalDateTime.now()));
+            ps.setString(3, "CREDIT_CARD");
+            ps.setString(4, "TEST-TXN-001");
+            ps.setString(5, "COMPLETED");
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) {
+                    return keys.getInt(1);
                 }
             }
         }
-        throw new SQLException("Failed to insert test airline");
+        throw new SQLException("Failed to create test payment");
     }
 
-    private static void insertTestAirports(Connection conn) throws SQLException {
-        String sql = "INSERT INTO airports " +
-                "(airport_code, name, city, country, timezone) VALUES (?, ?, ?, ?, ?)";
+    private static void ensureTestDependencies(Connection conn) throws SQLException {
+        // Ensure airports
+        ensureAirport(conn, "YYC", "Calgary International", "Calgary", "Canada", "MST");
+        ensureAirport(conn, "YYZ", "Toronto Pearson", "Toronto", "Canada", "EST");
 
+        // Ensure aircraft
+        String checkAircraft = "SELECT aircraft_id FROM aircraft WHERE model = 'TEST-737' LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(checkAircraft);
+             ResultSet rs = ps.executeQuery()) {
+            if (!rs.next()) {
+                String sql = "INSERT INTO aircraft (model, manufacturer, total_seats, seat_configuration, status) " +
+                            "VALUES (?, ?, ?, ?, ?)";
+                try (PreparedStatement ps2 = conn.prepareStatement(sql)) {
+                    ps2.setString(1, "TEST-737");
+                    ps2.setString(2, "Boeing");
+                    ps2.setInt(3, 180);
+                    ps2.setString(4, "3-3");
+                    ps2.setString(5, "ACTIVE");
+                    ps2.executeUpdate();
+                }
+            }
+        }
+
+        // Ensure route
+        String checkRoute = "SELECT route_id FROM routes WHERE origin_code = 'YYC' AND destination_code = 'YYZ' LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(checkRoute);
+             ResultSet rs = ps.executeQuery()) {
+            if (!rs.next()) {
+                String sql = "INSERT INTO routes (origin_code, destination_code, distance_km, estimated_duration_minutes) " +
+                            "VALUES (?, ?, ?, ?)";
+                try (PreparedStatement ps2 = conn.prepareStatement(sql)) {
+                    ps2.setString(1, "YYC");
+                    ps2.setString(2, "YYZ");
+                    ps2.setDouble(3, 2700.0);
+                    ps2.setInt(4, 240);
+                    ps2.executeUpdate();
+                }
+            }
+        }
+
+        // Ensure airline
+        String checkAirline = "SELECT airline_id FROM airlines WHERE code = 'AC' LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(checkAirline);
+             ResultSet rs = ps.executeQuery()) {
+            if (!rs.next()) {
+                String sql = "INSERT INTO airlines (name, code, country) VALUES (?, ?, ?)";
+                try (PreparedStatement ps2 = conn.prepareStatement(sql)) {
+                    ps2.setString(1, "Air Canada");
+                    ps2.setString(2, "AC");
+                    ps2.setString(3, "Canada");
+                    ps2.executeUpdate();
+                }
+            }
+        }
+    }
+
+    private static void ensureAirport(Connection conn, String code, String name, String city, String country, String timezone) throws SQLException {
+        String sql = "INSERT INTO airports (airport_code, name, city, country, timezone) " +
+                    "VALUES (?, ?, ?, ?, ?) " +
+                    "ON DUPLICATE KEY UPDATE name = VALUES(name)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            // YYC
-            ps.setString(1, "YYC");
-            ps.setString(2, "Calgary International Airport");
-            ps.setString(3, "Calgary");
-            ps.setString(4, "Canada");
-            ps.setString(5, "MST");
-            ps.executeUpdate();
-
-            // YVR
-            ps.setString(1, "YVR");
-            ps.setString(2, "Vancouver International Airport");
-            ps.setString(3, "Vancouver");
-            ps.setString(4, "Canada");
-            ps.setString(5, "PST");
+            ps.setString(1, code);
+            ps.setString(2, name);
+            ps.setString(3, city);
+            ps.setString(4, country);
+            ps.setString(5, timezone);
             ps.executeUpdate();
         }
     }
 
-    private static int insertTestRoute(Connection conn) throws SQLException {
-        String sql = "INSERT INTO routes " +
-                "(origin_code, destination_code, distance_km, estimated_duration_minutes) " +
-                "VALUES ('YYC', 'YVR', ?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setInt(1, 700);
-            ps.setInt(2, 90);
-            ps.executeUpdate();
-
-            try (ResultSet rs = ps.getGeneratedKeys()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
-                }
+    private static int getAircraftId(Connection conn) throws SQLException {
+        String sql = "SELECT aircraft_id FROM aircraft WHERE model = 'TEST-737' LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt("aircraft_id");
             }
         }
-        throw new SQLException("Failed to insert test route");
+        throw new SQLException("Test aircraft not found");
     }
 
-    private static int insertTestFlight(Connection conn,
-                                        int aircraftId,
-                                        int airlineId,
-                                        int routeId) throws SQLException {
-        String sql = "INSERT INTO flights " +
-                "(flight_number, departure_time, arrival_time, status, " +
-                "available_seats, price, aircraft_id, route_id, airline_id) " +
-                "VALUES (?, ?, ?, 'SCHEDULED', ?, ?, ?, ?, ?)";
-
-        LocalDateTime dep = LocalDateTime.now().plusDays(1);
-        LocalDateTime arr = dep.plusHours(1);
-
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, "RS100");
-            ps.setTimestamp(2, Timestamp.valueOf(dep));
-            ps.setTimestamp(3, Timestamp.valueOf(arr));
-            ps.setInt(4, 100);
-            ps.setDouble(5, 500.00);
-            ps.setInt(6, aircraftId);
-            ps.setInt(7, routeId);
-            ps.setInt(8, airlineId);
-            ps.executeUpdate();
-
-            try (ResultSet rs = ps.getGeneratedKeys()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
-                }
+    private static int getRouteId(Connection conn) throws SQLException {
+        String sql = "SELECT route_id FROM routes WHERE origin_code = 'YYC' AND destination_code = 'YYZ' LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt("route_id");
             }
         }
-        throw new SQLException("Failed to insert test flight");
+        throw new SQLException("Test route not found");
     }
 
-    private static int insertTestPayment(Connection conn) throws SQLException {
-        String sql = "INSERT INTO payments " +
-                "(amount, payment_date, payment_method, transaction_id, status) " +
-                "VALUES (?, ?, 'CREDIT_CARD', ?, 'COMPLETED')";
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setDouble(1, 500.00);
-            ps.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
-            ps.setString(3, "TX-RES-001");
-            ps.executeUpdate();
+    private static int getAirlineId(Connection conn) throws SQLException {
+        String sql = "SELECT airline_id FROM airlines WHERE code = 'AC' LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt("airline_id");
+            }
+        }
+        throw new SQLException("Test airline not found");
+    }
 
-            try (ResultSet rs = ps.getGeneratedKeys()) {
+    private static Customer getCustomerById(int customerId) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        String sql = "SELECT * FROM users WHERE user_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, customerId);
+            try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return rs.getInt(1);
+                    Customer customer = new Customer();
+                    customer.setUserId(rs.getInt("user_id"));
+                    customer.setUsername(rs.getString("username"));
+                    customer.setEmail(rs.getString("email"));
+                    customer.setRole(UserRole.CUSTOMER);
+                    customer.setFirstName(rs.getString("first_name"));
+                    customer.setLastName(rs.getString("last_name"));
+                    return customer;
                 }
             }
         }
-        throw new SQLException("Failed to insert test payment");
+        return null;
+    }
+
+    private static Flight getFlightById(int flightId) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        String sql = "SELECT * FROM flights WHERE flight_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, flightId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Flight flight = new Flight();
+                    flight.setFlightNumber(rs.getString("flight_number"));
+                    flight.setDepartureTime(rs.getTimestamp("departure_time").toLocalDateTime());
+                    flight.setArrivalTime(rs.getTimestamp("arrival_time").toLocalDateTime());
+                    flight.setStatus(businesslogic.entities.enums.FlightStatus.valueOf(rs.getString("status")));
+                    flight.setAvailableSeats(rs.getInt("available_seats"));
+                    flight.setPrice(rs.getDouble("price"));
+                    return flight;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static Payment getPaymentById(int paymentId) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        String sql = "SELECT * FROM payments WHERE payment_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, paymentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new Payment(
+                        rs.getInt("payment_id"),
+                        rs.getDouble("amount"),
+                        rs.getTimestamp("payment_date").toLocalDateTime(),
+                        businesslogic.entities.enums.PaymentMethod.valueOf(rs.getString("payment_method")),
+                        rs.getString("transaction_id"),
+                        businesslogic.entities.enums.PaymentStatus.valueOf(rs.getString("status"))
+                    );
+                }
+            }
+        }
+        return null;
     }
 }
+

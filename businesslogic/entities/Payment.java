@@ -14,9 +14,6 @@ public class Payment {
     private String transactionId;
     private PaymentStatus status;
 
-    public Payment(){
-    }
-
     public Payment(int paymentId, double amount, LocalDateTime paymentDate,
                    PaymentMethod paymentMethod, String transactionId, PaymentStatus status) {
         this.paymentId = paymentId;
@@ -53,25 +50,5 @@ public class Payment {
 
     public void setStatus(PaymentStatus status) {
         this.status = status;
-    }
-
-    public void setPaymentId(int paymentId) {
-        this.paymentId = paymentId;
-    }
-
-    public void setAmount(double amount) {
-        this.amount = amount;
-    }
-
-    public void setPaymentDate(LocalDateTime paymentDate) {
-        this.paymentDate = paymentDate;
-    }
-
-    public void setPaymentMethod(PaymentMethod paymentMethod) {
-        this.paymentMethod = paymentMethod;
-    }
-
-    public void setTransactionId(String transactionId) {
-        this.transactionId = transactionId;
     }
 }

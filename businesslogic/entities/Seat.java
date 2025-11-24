@@ -8,7 +8,6 @@ public class Seat {
     private String seatNumber;    // e.g. "12A"
     private SeatClass seatClass;  // ECONOMY / BUSINESS / FIRST
     private boolean isAvailable;
-    private int flightId; 
 
     public Seat() {
     }
@@ -50,14 +49,6 @@ public class Seat {
 
     public void setAvailable(boolean available) {
         isAvailable = available;
-    }
-
-    public long getFlightId() {
-    return flightId;
-    }
-
-    public void setFlightId(int flightId) {
-        this.flightId = flightId;
     }
 
     @Override

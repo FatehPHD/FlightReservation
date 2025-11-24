@@ -1,20 +1,16 @@
-// File: datalayer/dao/FlightDAO.java
 package datalayer.dao;
 
 import businesslogic.entities.Flight;
-import businesslogic.entities.enums.FlightStatus;
 
 import java.sql.SQLException;
-import java.time.LocalDateTime;
-import java.util.List;
 
 public interface FlightDAO extends BaseDAO<Flight, Integer> {
-
+    
+    /**
+     * Find flight by flight number (e.g., "AC123").
+     * @param flightNumber Flight number
+     * @return Flight or null if not found
+     * @throws SQLException if database error occurs
+     */
     Flight findByFlightNumber(String flightNumber) throws SQLException;
-
-    List<Flight> findByStatus(FlightStatus status) throws SQLException;
-
-    List<Flight> findByRoute(String originCode, String destinationCode) throws SQLException;
-
-    List<Flight> findByDepartureRange(LocalDateTime from, LocalDateTime to) throws SQLException;
 }

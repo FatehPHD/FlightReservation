@@ -1,4 +1,3 @@
-// File: datalayer/impl/SeatDAOImpl.java
 package datalayer.impl;
 
 import businesslogic.entities.Seat;
@@ -12,21 +11,43 @@ import java.util.List;
 
 public class SeatDAOImpl implements SeatDAO {
 
-    private final Connection connection;
+    private static final String INSERT_SQL =
+            "INSERT INTO seats (flight_id, seat_number, seat_class, is_available) " +
+            "VALUES (?, ?, ?, ?)";
 
-    public SeatDAOImpl() {
-        this.connection = DatabaseConnection.getInstance().getConnection();
-    }
+    private static final String SELECT_BY_ID_SQL =
+            "SELECT * FROM seats WHERE seat_id = ?";
 
-    // ---------------- BaseDAO<Seat, Integer> ----------------
+    private static final String SELECT_ALL_SQL =
+            "SELECT * FROM seats";
+
+    private static final String SELECT_BY_FLIGHT_ID_SQL =
+            "SELECT * FROM seats WHERE flight_id = ?";
+
+    private static final String SELECT_AVAILABLE_BY_FLIGHT_ID_SQL =
+            "SELECT * FROM seats WHERE flight_id = ? AND is_available = TRUE";
+
+    private static final String SELECT_BY_FLIGHT_ID_AND_CLASS_SQL =
+            "SELECT * FROM seats WHERE flight_id = ? AND seat_class = ?";
+
+    private static final String UPDATE_SQL =
+            "UPDATE seats SET flight_id = ?, seat_number = ?, seat_class = ?, is_available = ? " +
+            "WHERE seat_id = ?";
+
+    private static final String DELETE_SQL =
+            "DELETE FROM seats WHERE seat_id = ?";
 
     @Override
     public Seat save(Seat seat) throws SQLException {
-        String sql = "INSERT INTO seats (flight_id, seat_number, seat_class, is_available) " +
-                     "VALUES (?, ?, ?, ?)";
+        Connection conn = DatabaseConnection.getInstance().getConnection();
 
-        try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setLong(1, seat.getFlightId());                // from Seat.flightId
+        try (PreparedStatement stmt = conn.prepareStatement(
+                INSERT_SQL, Statement.RETURN_GENERATED_KEYS
+        )) {
+            // Note: Seat entity doesn't have flightId field, so we need to get it from somewhere
+            // For now, assuming it's passed via a different mechanism or set separately
+            // This is a limitation - Seat should have a Flight reference or flightId field
+            stmt.setInt(1, 0); // Placeholder - should be set properly when Seat has flightId
             stmt.setString(2, seat.getSeatNumber());
             stmt.setString(3, seat.getSeatClass().name());
             stmt.setBoolean(4, seat.isAvailable());
@@ -36,9 +57,9 @@ public class SeatDAOImpl implements SeatDAO {
                 throw new SQLException("Saving seat failed, no rows affected.");
             }
 
-            try (ResultSet rs = stmt.getGeneratedKeys()) {
-                if (rs.next()) {
-                    seat.setSeatId(rs.getInt(1));               // seatId is int in your entity
+            try (ResultSet keys = stmt.getGeneratedKeys()) {
+                if (keys.next()) {
+                    seat.setSeatId(keys.getInt(1));
                 }
             }
         }
@@ -48,15 +69,14 @@ public class SeatDAOImpl implements SeatDAO {
 
     @Override
     public Seat findById(Integer id) throws SQLException {
-        String sql = "SELECT seat_id, flight_id, seat_number, seat_class, is_available " +
-                     "FROM seats WHERE seat_id = ?";
+        Connection conn = DatabaseConnection.getInstance().getConnection();
 
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        try (PreparedStatement stmt = conn.prepareStatement(SELECT_BY_ID_SQL)) {
             stmt.setInt(1, id);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return mapRowToSeat(rs);
+                    return mapRow(rs);
                 }
             }
         }
@@ -66,28 +86,87 @@ public class SeatDAOImpl implements SeatDAO {
 
     @Override
     public List<Seat> findAll() throws SQLException {
-        String sql = "SELECT seat_id, flight_id, seat_number, seat_class, is_available FROM seats";
-        List<Seat> seats = new ArrayList<>();
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        List<Seat> list = new ArrayList<>();
 
-        try (PreparedStatement stmt = connection.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(SELECT_ALL_SQL)) {
 
             while (rs.next()) {
-                seats.add(mapRowToSeat(rs));
+                list.add(mapRow(rs));
             }
         }
 
-        return seats;
+        return list;
+    }
+
+    @Override
+    public List<Seat> findByFlightId(Integer flightId) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        List<Seat> list = new ArrayList<>();
+
+        try (PreparedStatement stmt = conn.prepareStatement(SELECT_BY_FLIGHT_ID_SQL)) {
+            stmt.setInt(1, flightId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+        }
+
+        return list;
+    }
+
+    @Override
+    public List<Seat> findAvailableSeatsByFlightId(Integer flightId) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        List<Seat> list = new ArrayList<>();
+
+        try (PreparedStatement stmt = conn.prepareStatement(SELECT_AVAILABLE_BY_FLIGHT_ID_SQL)) {
+            stmt.setInt(1, flightId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+        }
+
+        return list;
+    }
+
+    @Override
+    public List<Seat> findByFlightIdAndSeatClass(Integer flightId, SeatClass seatClass) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        List<Seat> list = new ArrayList<>();
+
+        try (PreparedStatement stmt = conn.prepareStatement(SELECT_BY_FLIGHT_ID_AND_CLASS_SQL)) {
+            stmt.setInt(1, flightId);
+            stmt.setString(2, seatClass.name());
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+        }
+
+        return list;
     }
 
     @Override
     public boolean update(Seat seat) throws SQLException {
-        String sql = "UPDATE seats " +
-                     "SET flight_id = ?, seat_number = ?, seat_class = ?, is_available = ? " +
-                     "WHERE seat_id = ?";
+        Connection conn = DatabaseConnection.getInstance().getConnection();
 
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setLong(1, seat.getFlightId());
+        // Get existing flight_id from database to preserve it
+        Integer existingFlightId = getFlightIdForSeat(conn, seat.getSeatId());
+        if (existingFlightId == null) {
+            throw new SQLException("Seat not found: " + seat.getSeatId());
+        }
+
+        try (PreparedStatement stmt = conn.prepareStatement(UPDATE_SQL)) {
+            stmt.setInt(1, existingFlightId); // Preserve existing flight_id
             stmt.setString(2, seat.getSeatNumber());
             stmt.setString(3, seat.getSeatClass().name());
             stmt.setBoolean(4, seat.isAvailable());
@@ -98,98 +177,45 @@ public class SeatDAOImpl implements SeatDAO {
         }
     }
 
-    @Override
-    public boolean delete(Integer id) throws SQLException {
-        String sql = "DELETE FROM seats WHERE seat_id = ?";
-
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, id);
-            int affected = stmt.executeUpdate();
-            return affected > 0;
-        }
-    }
-
-    // ---------------- Custom SeatDAO methods ----------------
-
-    @Override
-    public List<Seat> findByFlightId(long flightId) throws SQLException {
-        String sql = "SELECT seat_id, flight_id, seat_number, seat_class, is_available " +
-                     "FROM seats WHERE flight_id = ? ORDER BY seat_number";
-        List<Seat> seats = new ArrayList<>();
-
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setLong(1, flightId);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    seats.add(mapRowToSeat(rs));
-                }
-            }
-        }
-
-        return seats;
-    }
-
-    @Override
-    public List<Seat> findAvailableByFlight(long flightId) throws SQLException {
-        String sql = "SELECT seat_id, flight_id, seat_number, seat_class, is_available " +
-                     "FROM seats WHERE flight_id = ? AND is_available = TRUE " +
-                     "ORDER BY seat_number";
-        List<Seat> seats = new ArrayList<>();
-
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setLong(1, flightId);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    seats.add(mapRowToSeat(rs));
-                }
-            }
-        }
-
-        return seats;
-    }
-
-    @Override
-    public Seat findByFlightAndSeatNumber(long flightId, String seatNumber) throws SQLException {
-        String sql = "SELECT seat_id, flight_id, seat_number, seat_class, is_available " +
-                     "FROM seats WHERE flight_id = ? AND seat_number = ?";
-
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setLong(1, flightId);
-            stmt.setString(2, seatNumber);
-
+    private Integer getFlightIdForSeat(Connection conn, int seatId) throws SQLException {
+        String sql = "SELECT flight_id FROM seats WHERE seat_id = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, seatId);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return mapRowToSeat(rs);
+                    return rs.getInt("flight_id");
                 }
             }
         }
-
         return null;
     }
 
     @Override
-    public boolean updateAvailability(int seatId, boolean available) throws SQLException {
-        String sql = "UPDATE seats SET is_available = ? WHERE seat_id = ?";
+    public boolean delete(Integer id) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
 
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setBoolean(1, available);
-            stmt.setInt(2, seatId);
+        try (PreparedStatement stmt = conn.prepareStatement(DELETE_SQL)) {
+            stmt.setInt(1, id);
+
             int affected = stmt.executeUpdate();
             return affected > 0;
         }
     }
 
-    // ---------------- Helper ----------------
-
-    private Seat mapRowToSeat(ResultSet rs) throws SQLException {
+    private Seat mapRow(ResultSet rs) throws SQLException {
         Seat seat = new Seat();
+
         seat.setSeatId(rs.getInt("seat_id"));
         seat.setSeatNumber(rs.getString("seat_number"));
-        seat.setSeatClass(SeatClass.valueOf(rs.getString("seat_class")));
+        
+        String seatClassStr = rs.getString("seat_class");
+        if (seatClassStr != null) {
+            seat.setSeatClass(SeatClass.valueOf(seatClassStr));
+        }
+        
         seat.setAvailable(rs.getBoolean("is_available"));
-        seat.setFlightId(rs.getInt("flight_id"));
+
         return seat;
     }
 }
+

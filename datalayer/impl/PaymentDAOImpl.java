@@ -1,4 +1,3 @@
-// File: datalayer/impl/PaymentDAOImpl.java
 package datalayer.impl;
 
 import businesslogic.entities.Payment;
@@ -14,70 +13,58 @@ import java.util.List;
 
 public class PaymentDAOImpl implements PaymentDAO {
 
-    private final DatabaseConnection db;
+    private static final String INSERT_SQL =
+            "INSERT INTO payments (amount, payment_date, payment_method, transaction_id, status) " +
+            "VALUES (?, ?, ?, ?, ?)";
 
-    public PaymentDAOImpl() {
-        this.db = DatabaseConnection.getInstance();
-    }
+    private static final String SELECT_BY_ID_SQL =
+            "SELECT * FROM payments WHERE payment_id = ?";
 
-    // ----- Helper: map ResultSet row to Payment -----
-    private Payment mapRow(ResultSet rs) throws SQLException {
-        Payment payment = new Payment();
+    private static final String SELECT_BY_TRANSACTION_ID_SQL =
+            "SELECT * FROM payments WHERE transaction_id = ?";
 
-        payment.setPaymentId(rs.getInt("payment_id"));
-        payment.setAmount(rs.getDouble("amount"));
+    private static final String SELECT_ALL_SQL =
+            "SELECT * FROM payments";
 
-        Timestamp ts = rs.getTimestamp("payment_date");
-        if (ts != null) {
-            payment.setPaymentDate(ts.toLocalDateTime());
-        }
+    private static final String UPDATE_SQL =
+            "UPDATE payments SET amount = ?, payment_date = ?, payment_method = ?, " +
+            "transaction_id = ?, status = ? WHERE payment_id = ?";
 
-        String methodStr = rs.getString("payment_method");
-        if (methodStr != null) {
-            payment.setPaymentMethod(PaymentMethod.valueOf(methodStr));
-        }
-
-        payment.setTransactionId(rs.getString("transaction_id"));
-
-        String statusStr = rs.getString("status");
-        if (statusStr != null) {
-            payment.setStatus(PaymentStatus.valueOf(statusStr));
-        }
-
-        return payment;
-    }
-
-    // ----- CRUD from BaseDAO -----
+    private static final String DELETE_SQL =
+            "DELETE FROM payments WHERE payment_id = ?";
 
     @Override
     public Payment save(Payment payment) throws SQLException {
-        String sql = "INSERT INTO payments " +
-                "(amount, payment_date, payment_method, transaction_id, status) " +
-                "VALUES (?, ?, ?, ?, ?)";
+        Connection conn = DatabaseConnection.getInstance().getConnection();
 
-        Connection conn = db.getConnection();
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement stmt = conn.prepareStatement(
+                INSERT_SQL, Statement.RETURN_GENERATED_KEYS
+        )) {
+            stmt.setDouble(1, payment.getAmount());
+            stmt.setTimestamp(2, Timestamp.valueOf(payment.getPaymentDate()));
+            stmt.setString(3, payment.getPaymentMethod().name());
+            stmt.setString(4, payment.getTransactionId());
+            stmt.setString(5, payment.getStatus().name());
 
-            ps.setDouble(1, payment.getAmount());
-            LocalDateTime paymentDate = payment.getPaymentDate();
-            ps.setTimestamp(2, paymentDate != null ? Timestamp.valueOf(paymentDate) : null);
-            ps.setString(3, payment.getPaymentMethod() != null
-                    ? payment.getPaymentMethod().name()
-                    : null);
-            ps.setString(4, payment.getTransactionId());
-            ps.setString(5, payment.getStatus() != null
-                    ? payment.getStatus().name()
-                    : null);
-
-            int affected = ps.executeUpdate();
+            int affected = stmt.executeUpdate();
             if (affected == 0) {
-                throw new SQLException("Inserting payment failed, no rows affected.");
+                throw new SQLException("Saving payment failed, no rows affected.");
             }
 
-            try (ResultSet keys = ps.getGeneratedKeys()) {
+            try (ResultSet keys = stmt.getGeneratedKeys()) {
                 if (keys.next()) {
-                    int id = keys.getInt(1);
-                    payment.setPaymentId(id);
+                    // Note: Payment constructor requires paymentId, but we need to create new instance
+                    // Since Payment doesn't have setters for all fields, we'll need to work around this
+                    // For now, we'll create a new Payment with the generated ID
+                    int paymentId = keys.getInt(1);
+                    return new Payment(
+                        paymentId,
+                        payment.getAmount(),
+                        payment.getPaymentDate(),
+                        payment.getPaymentMethod(),
+                        payment.getTransactionId(),
+                        payment.getStatus()
+                    );
                 }
             }
         }
@@ -87,14 +74,29 @@ public class PaymentDAOImpl implements PaymentDAO {
 
     @Override
     public Payment findById(Integer id) throws SQLException {
-        String sql = "SELECT payment_id, amount, payment_date, payment_method, transaction_id, status " +
-                     "FROM payments WHERE payment_id = ?";
+        Connection conn = DatabaseConnection.getInstance().getConnection();
 
-        Connection conn = db.getConnection();
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, id);
+        try (PreparedStatement stmt = conn.prepareStatement(SELECT_BY_ID_SQL)) {
+            stmt.setInt(1, id);
 
-            try (ResultSet rs = ps.executeQuery()) {
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapRow(rs);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    @Override
+    public Payment findByTransactionId(String transactionId) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+
+        try (PreparedStatement stmt = conn.prepareStatement(SELECT_BY_TRANSACTION_ID_SQL)) {
+            stmt.setString(1, transactionId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
                     return mapRow(rs);
                 }
@@ -106,59 +108,64 @@ public class PaymentDAOImpl implements PaymentDAO {
 
     @Override
     public List<Payment> findAll() throws SQLException {
-        String sql = "SELECT payment_id, amount, payment_date, payment_method, transaction_id, status " +
-                     "FROM payments";
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        List<Payment> list = new ArrayList<>();
 
-        List<Payment> result = new ArrayList<>();
-
-        Connection conn = db.getConnection();
-        try (PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(SELECT_ALL_SQL)) {
 
             while (rs.next()) {
-                result.add(mapRow(rs));
+                list.add(mapRow(rs));
             }
         }
 
-        return result;
+        return list;
     }
 
     @Override
     public boolean update(Payment payment) throws SQLException {
-        String sql = "UPDATE payments SET " +
-                     "amount = ?, payment_date = ?, payment_method = ?, " +
-                     "transaction_id = ?, status = ? " +
-                     "WHERE payment_id = ?";
+        Connection conn = DatabaseConnection.getInstance().getConnection();
 
-        Connection conn = db.getConnection();
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (PreparedStatement stmt = conn.prepareStatement(UPDATE_SQL)) {
+            stmt.setDouble(1, payment.getAmount());
+            stmt.setTimestamp(2, Timestamp.valueOf(payment.getPaymentDate()));
+            stmt.setString(3, payment.getPaymentMethod().name());
+            stmt.setString(4, payment.getTransactionId());
+            stmt.setString(5, payment.getStatus().name());
+            stmt.setInt(6, payment.getPaymentId());
 
-            ps.setDouble(1, payment.getAmount());
-            LocalDateTime paymentDate = payment.getPaymentDate();
-            ps.setTimestamp(2, paymentDate != null ? Timestamp.valueOf(paymentDate) : null);
-            ps.setString(3, payment.getPaymentMethod() != null
-                    ? payment.getPaymentMethod().name()
-                    : null);
-            ps.setString(4, payment.getTransactionId());
-            ps.setString(5, payment.getStatus() != null
-                    ? payment.getStatus().name()
-                    : null);
-            ps.setInt(6, payment.getPaymentId());
-
-            int affected = ps.executeUpdate();
+            int affected = stmt.executeUpdate();
             return affected > 0;
         }
     }
 
     @Override
     public boolean delete(Integer id) throws SQLException {
-        String sql = "DELETE FROM payments WHERE payment_id = ?";
+        Connection conn = DatabaseConnection.getInstance().getConnection();
 
-        Connection conn = db.getConnection();
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, id);
-            int affected = ps.executeUpdate();
+        try (PreparedStatement stmt = conn.prepareStatement(DELETE_SQL)) {
+            stmt.setInt(1, id);
+
+            int affected = stmt.executeUpdate();
             return affected > 0;
         }
     }
+
+    private Payment mapRow(ResultSet rs) throws SQLException {
+        int paymentId = rs.getInt("payment_id");
+        double amount = rs.getDouble("amount");
+        Timestamp paymentDateTs = rs.getTimestamp("payment_date");
+        LocalDateTime paymentDate = paymentDateTs != null ? paymentDateTs.toLocalDateTime() : null;
+        
+        String methodStr = rs.getString("payment_method");
+        PaymentMethod method = methodStr != null ? PaymentMethod.valueOf(methodStr) : null;
+        
+        String transactionId = rs.getString("transaction_id");
+        
+        String statusStr = rs.getString("status");
+        PaymentStatus status = statusStr != null ? PaymentStatus.valueOf(statusStr) : null;
+
+        return new Payment(paymentId, amount, paymentDate, method, transactionId, status);
+    }
 }
+
