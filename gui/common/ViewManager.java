@@ -1,6 +1,11 @@
 package gui.common;
 
 import businesslogic.entities.Customer;
+import businesslogic.services.CustomerService;
+import businesslogic.services.FlightService;
+import businesslogic.services.ReservationService;
+import businesslogic.services.PaymentService;
+import businesslogic.services.AdminService;
 import javax.swing.*;
 import java.awt.*;
 
@@ -9,11 +14,13 @@ public class ViewManager {
     private CardLayout cardLayout;
     private Container container;
     private Customer currentUser;
+    private ServiceManager serviceManager;
 
-    public ViewManager(CardLayout layout, Container container) {
+    public ViewManager(CardLayout layout, Container container, ServiceManager serviceManager) {
         this.cardLayout = layout;
         this.container = container;
         this.currentUser = null;
+        this.serviceManager = serviceManager;
     }
 
     public void showView(String name, JPanel panel) {
@@ -49,5 +56,25 @@ public class ViewManager {
 
     public boolean isLoggedIn() {
         return currentUser != null;
+    }
+
+    public CustomerService getCustomerService() {
+        return serviceManager.getCustomerService();
+    }
+
+    public FlightService getFlightService() {
+        return serviceManager.getFlightService();
+    }
+
+    public ReservationService getReservationService() {
+        return serviceManager.getReservationService();
+    }
+
+    public PaymentService getPaymentService() {
+        return serviceManager.getPaymentService();
+    }
+
+    public AdminService getAdminService() {
+        return serviceManager.getAdminService();
     }
 }

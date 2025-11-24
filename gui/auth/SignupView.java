@@ -3,10 +3,6 @@ package gui.auth;
 import gui.common.ViewManager;
 import businesslogic.services.CustomerService;
 import businesslogic.entities.Customer;
-import datalayer.dao.UserDAO;
-import datalayer.dao.ReservationDAO;
-import datalayer.impl.UserDAOImpl;
-import datalayer.impl.ReservationDAOImpl;
 
 import javax.swing.*;
 import java.awt.*;
@@ -20,29 +16,26 @@ public class SignupView extends JPanel {
     public SignupView(ViewManager viewManager) {
         this.viewManager = viewManager;
         
-        // Initialize CustomerService
-        try {
-            UserDAO userDAO = new UserDAOImpl();
-            ReservationDAO reservationDAO = new ReservationDAOImpl();
-            this.customerService = new CustomerService(userDAO, reservationDAO);
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this,
-                "Database connection error: " + e.getMessage(),
-                "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
+        // Get CustomerService from ViewManager (which gets it from ServiceManager)
+        this.customerService = viewManager.getCustomerService();
         
         setLayout(new GridBagLayout());
 
         JLabel title = new JLabel("Create Account");
         title.setFont(new Font("Arial", Font.BOLD, 24));
 
-        JTextField usernameField = new JTextField(15);
-        JTextField emailField = new JTextField(15);
-        JTextField firstNameField = new JTextField(15);
-        JTextField lastNameField = new JTextField(15);
-        JPasswordField passwordField = new JPasswordField(15);
-        JPasswordField confirmPasswordField = new JPasswordField(15);
+        JTextField usernameField = new JTextField(25);
+        usernameField.setPreferredSize(new Dimension(300, 30));
+        JTextField emailField = new JTextField(25);
+        emailField.setPreferredSize(new Dimension(300, 30));
+        JTextField firstNameField = new JTextField(25);
+        firstNameField.setPreferredSize(new Dimension(300, 30));
+        JTextField lastNameField = new JTextField(25);
+        lastNameField.setPreferredSize(new Dimension(300, 30));
+        JPasswordField passwordField = new JPasswordField(25);
+        passwordField.setPreferredSize(new Dimension(300, 30));
+        JPasswordField confirmPasswordField = new JPasswordField(25);
+        confirmPasswordField.setPreferredSize(new Dimension(300, 30));
 
         JButton createBtn = new JButton("Sign Up");
         JButton backBtn = new JButton("Back to Login");
