@@ -1,8 +1,11 @@
 package gui.auth;
 
 import gui.common.ViewManager;
-import businesslogic.services.CustomerService;
+import businesslogic.entities.User;
 import businesslogic.entities.Customer;
+import businesslogic.entities.enums.UserRole;
+import datalayer.dao.UserDAO;
+import datalayer.impl.UserDAOImpl;
 
 import javax.swing.*;
 import java.awt.*;
@@ -11,13 +14,13 @@ import java.sql.SQLException;
 public class LoginView extends JPanel {
 
     private ViewManager viewManager;
-    private CustomerService customerService;
+    private UserDAO userDAO;
 
     public LoginView(ViewManager viewManager) {
         this.viewManager = viewManager;
         
-        // Get CustomerService from ViewManager (which gets it from ServiceManager)
-        this.customerService = viewManager.getCustomerService();
+        // Get UserDAO to authenticate any user type (Customer, FlightAgent, SystemAdmin)
+        this.userDAO = new UserDAOImpl();
         
         setLayout(new GridBagLayout());
 
@@ -67,17 +70,31 @@ public class LoginView extends JPanel {
             }
             
             try {
-                Customer customer = customerService.authenticate(username, password);
-                if (customer != null) {
-                    // Store logged-in customer in ViewManager for later use
-                    viewManager.setCurrentUser(customer);
+                // Get user by username (works for all user types)
+                User user = userDAO.findByUsername(username);
+                
+                if (user != null && password.equals(user.getPassword())) {
+                    // Store logged-in user in ViewManager (only if Customer)
+                    if (user instanceof Customer) {
+                        viewManager.setCurrentUser((Customer) user);
+                    }
                     
-                    JOptionPane.showMessageDialog(this,
-                        "Login successful! Welcome, " + customer.getFirstName() + ".",
-                        "Success", JOptionPane.INFORMATION_MESSAGE);
-                    
-                    // TODO: Navigate to customer dashboard
-                    // For now, just show success message
+                    // Navigate to appropriate dashboard based on role
+                    UserRole role = user.getRole();
+                    if (role == UserRole.CUSTOMER) {
+                        viewManager.showView("CUSTOMER_DASHBOARD", 
+                            new gui.customer.CustomerDashboardView(viewManager));
+                    } else if (role == UserRole.SYSTEM_ADMIN) {
+                        viewManager.showView("ADMIN_DASHBOARD", 
+                            new gui.admin.AdminDashboardView(viewManager));
+                    } else if (role == UserRole.FLIGHT_AGENT) {
+                        viewManager.showView("AGENT_DASHBOARD", 
+                            new gui.agent.AgentDashboardView(viewManager));
+                    } else {
+                        JOptionPane.showMessageDialog(this,
+                            "Unknown user role. Please contact support.",
+                            "Error", JOptionPane.ERROR_MESSAGE);
+                    }
                 } else {
                     JOptionPane.showMessageDialog(this,
                         "Invalid username or password.",
