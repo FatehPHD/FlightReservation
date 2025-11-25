@@ -36,7 +36,7 @@ public class CustomerDashboardView extends JPanel {
         add(title, gbc);
         
         // Welcome message
-        Customer customer = viewManager.getCurrentUser();
+        Customer customer = viewManager.getCurrentCustomer();
         String welcomeMessage;
         if (customer != null && customer.getFirstName() != null) {
             String firstName = customer.getFirstName();
@@ -80,7 +80,7 @@ public class CustomerDashboardView extends JPanel {
         myReservationsBtn.setMaximumSize(new Dimension(250, 40));
         myReservationsBtn.setFont(new Font("Arial", Font.PLAIN, 16));
         myReservationsBtn.addActionListener(e -> {
-            Customer currentCustomer = viewManager.getCurrentUser();
+            Customer currentCustomer = viewManager.getCurrentCustomer();
             if (currentCustomer != null) {
                 viewManager.showView("MY_RESERVATIONS", 
                     new MyReservationsView(viewManager, currentCustomer));
@@ -96,7 +96,7 @@ public class CustomerDashboardView extends JPanel {
         profileBtn.setMaximumSize(new Dimension(250, 40));
         profileBtn.setFont(new Font("Arial", Font.PLAIN, 16));
         profileBtn.addActionListener(e -> {
-            Customer currentCustomer = viewManager.getCurrentUser();
+            Customer currentCustomer = viewManager.getCurrentCustomer();
             if (currentCustomer != null) {
                 viewManager.showView("PROFILE_VIEW", 
                     new ProfileView(viewManager, currentCustomer));

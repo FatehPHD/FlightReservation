@@ -1,8 +1,10 @@
 package gui.auth;
 
 import gui.common.ViewManager;
+import gui.customer.CustomerDashboardView;
+import gui.admin.AdminDashboardView;
+import gui.agent.AgentDashboardView;
 import businesslogic.entities.User;
-import businesslogic.entities.Customer;
 import businesslogic.entities.enums.UserRole;
 import datalayer.dao.UserDAO;
 import datalayer.impl.UserDAOImpl;
@@ -74,22 +76,20 @@ public class LoginView extends JPanel {
                 User user = userDAO.findByUsername(username);
                 
                 if (user != null && password.equals(user.getPassword())) {
-                    // Store logged-in user in ViewManager (only if Customer)
-                    if (user instanceof Customer) {
-                        viewManager.setCurrentUser((Customer) user);
-                    }
+                    // Store logged-in user in ViewManager (works for all user types)
+                    viewManager.setCurrentUser(user);
                     
                     // Navigate to appropriate dashboard based on role
                     UserRole role = user.getRole();
                     if (role == UserRole.CUSTOMER) {
                         viewManager.showView("CUSTOMER_DASHBOARD", 
-                            new gui.customer.CustomerDashboardView(viewManager));
+                            new CustomerDashboardView(viewManager));
                     } else if (role == UserRole.SYSTEM_ADMIN) {
                         viewManager.showView("ADMIN_DASHBOARD", 
-                            new gui.admin.AdminDashboardView(viewManager));
+                            new AdminDashboardView(viewManager));
                     } else if (role == UserRole.FLIGHT_AGENT) {
                         viewManager.showView("AGENT_DASHBOARD", 
-                            new gui.agent.AgentDashboardView(viewManager));
+                            new AgentDashboardView(viewManager));
                     } else {
                         JOptionPane.showMessageDialog(this,
                             "Unknown user role. Please contact support.",

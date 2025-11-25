@@ -13,6 +13,9 @@ mkdir -p datalayer/impl
 mkdir -p datalayer/database
 mkdir -p gui/auth
 mkdir -p gui/common
+mkdir -p gui/customer
+mkdir -p gui/admin
+mkdir -p gui/agent
 mkdir -p tests
 
 # Compile all Java files
@@ -26,6 +29,9 @@ javac -cp "lib/mysql-connector-j-9.0.0.jar" \
   gui/*.java \
   gui/auth/*.java \
   gui/common/*.java \
+  gui/customer/*.java \
+  gui/admin/*.java \
+  gui/agent/*.java \
   tests/*.java
 
 if [ $? -eq 0 ]; then
