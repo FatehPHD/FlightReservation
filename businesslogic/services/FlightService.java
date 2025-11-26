@@ -1,8 +1,10 @@
 package businesslogic.services;
 
 import businesslogic.entities.Flight;
+import businesslogic.entities.Airport;
 import businesslogic.entities.enums.FlightStatus;
 import datalayer.dao.FlightDAO;
+import datalayer.dao.AirportDAO;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -17,9 +19,11 @@ import java.util.stream.Collectors;
 public class FlightService {
     
     private FlightDAO flightDAO;
+    private AirportDAO airportDAO;
     
-    public FlightService(FlightDAO flightDAO) {
+    public FlightService(FlightDAO flightDAO, AirportDAO airportDAO) {
         this.flightDAO = flightDAO;
+        this.airportDAO = airportDAO;
     }
     
     /**
@@ -184,5 +188,13 @@ public class FlightService {
         
         flight.setAvailableSeats(flight.getAvailableSeats() + seatsReleased);
         return flightDAO.update(flight);
+    }
+    
+    /**
+     * Get all airports for populating dropdowns in search forms.
+     * @return List of all airports
+     */
+    public List<Airport> getAllAirports() throws SQLException {
+        return airportDAO.findAll();
     }
 }

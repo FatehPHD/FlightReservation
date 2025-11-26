@@ -3,6 +3,7 @@ package datalayer.impl;
 import businesslogic.entities.Airport;
 import businesslogic.entities.Route;
 import datalayer.dao.RouteDAO;
+import datalayer.dao.AirportDAO;
 import datalayer.database.DatabaseConnection;
 
 import java.sql.*;
@@ -31,9 +32,11 @@ public class RouteDAOImpl implements RouteDAO {
             "DELETE FROM routes WHERE route_id = ?";
 
     private final Connection connection;
+    private AirportDAO airportDAO;
 
     public RouteDAOImpl() throws SQLException {
         this.connection = DatabaseConnection.getInstance().getConnection();
+        this.airportDAO = new AirportDAOImpl();
     }
 
     @Override
@@ -116,12 +119,20 @@ public class RouteDAOImpl implements RouteDAO {
         double distance = rs.getDouble("distance_km");
         int duration = rs.getInt("estimated_duration_minutes");
 
-        // Create minimal Airport objects with just the code set.
-        Airport origin = new Airport();
-        origin.setAirportCode(originCode);
+        // Load full Airport objects using AirportDAO
+        Airport origin = airportDAO.findById(originCode);
+        if (origin == null) {
+            // Fallback: create minimal Airport object if not found
+            origin = new Airport();
+            origin.setAirportCode(originCode);
+        }
 
-        Airport destination = new Airport();
-        destination.setAirportCode(destinationCode);
+        Airport destination = airportDAO.findById(destinationCode);
+        if (destination == null) {
+            // Fallback: create minimal Airport object if not found
+            destination = new Airport();
+            destination.setAirportCode(destinationCode);
+        }
 
         Route route = new Route();
         route.setRouteId(routeId);

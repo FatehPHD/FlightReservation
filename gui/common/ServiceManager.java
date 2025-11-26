@@ -36,7 +36,7 @@ public class ServiceManager {
         
         // Initialize services with their dependencies
         this.customerService = new CustomerService(userDAO, reservationDAO);
-        this.flightService = new FlightService(flightDAO);
+        this.flightService = new FlightService(flightDAO, airportDAO);
         this.reservationService = new ReservationService(reservationDAO, seatDAO, flightService);
         this.paymentService = new PaymentService(paymentDAO);
         this.adminService = new AdminService(flightDAO, aircraftDAO, airlineDAO, 
