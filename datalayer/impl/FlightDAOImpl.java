@@ -7,7 +7,10 @@ import businesslogic.entities.enums.FlightStatus;
 import datalayer.dao.FlightDAO;
 import datalayer.dao.AircraftDAO;
 import datalayer.dao.RouteDAO;
+import datalayer.dao.SeatDAO;
 import datalayer.database.DatabaseConnection;
+import datalayer.database.TransactionManager;
+import datalayer.impl.SeatDAOImpl;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -25,6 +28,9 @@ public class FlightDAOImpl implements FlightDAO {
 
     private static final String SELECT_BY_FLIGHT_NUMBER_SQL =
             "SELECT * FROM flights WHERE flight_number = ?";
+
+    private static final String SELECT_BY_AIRCRAFT_ID_SQL =
+            "SELECT * FROM flights WHERE aircraft_id = ?";
 
     private static final String SELECT_ALL_SQL =
             "SELECT * FROM flights";
@@ -48,37 +54,78 @@ public class FlightDAOImpl implements FlightDAO {
     @Override
     public Flight save(Flight flight) throws SQLException {
         Connection conn = DatabaseConnection.getInstance().getConnection();
-
+    
         // Get airline_id from flight number prefix (e.g., "AC" from "AC123")
         Integer airlineId = getAirlineIdFromFlightNumber(flight.getFlightNumber());
         if (airlineId == null) {
             throw new SQLException("Cannot find airline for flight number: " + flight.getFlightNumber());
         }
-
-        try (PreparedStatement stmt = conn.prepareStatement(
-                INSERT_SQL, Statement.RETURN_GENERATED_KEYS
-        )) {
-            stmt.setString(1, flight.getFlightNumber());
-            stmt.setTimestamp(2, Timestamp.valueOf(flight.getDepartureTime()));
-            stmt.setTimestamp(3, Timestamp.valueOf(flight.getArrivalTime()));
-            stmt.setString(4, flight.getStatus().name());
-            stmt.setInt(5, flight.getAvailableSeats());
-            stmt.setDouble(6, flight.getPrice());
-            stmt.setInt(7, flight.getAircraft().getAircraftId());
-            stmt.setInt(8, flight.getRoute().getRouteId());
-            stmt.setInt(9, airlineId);
-
-            int affected = stmt.executeUpdate();
-            if (affected == 0) {
-                throw new SQLException("Saving flight failed, no rows affected.");
-            }
-
-            // Note: Flight entity doesn't have flightId field, so we can't set it
-            // The flight_id is generated but not stored in the Flight object
+    
+        // Validate aircraft exists and get total seats
+        if (flight.getAircraft() == null) {
+            throw new SQLException("Aircraft is required for flight");
         }
-
+        Aircraft aircraft = aircraftDAO.findById(flight.getAircraft().getAircraftId());
+        if (aircraft == null) {
+            throw new SQLException("Aircraft not found: " + flight.getAircraft().getAircraftId());
+        }
+        int totalSeats = aircraft.getTotalSeats();
+        
+        // Begin transaction to ensure atomicity of flight and seat creation
+        TransactionManager.begin(conn);
+        int generatedFlightId;
+        
+        try {
+            // Save flight
+            try (PreparedStatement stmt = conn.prepareStatement(
+                    INSERT_SQL, Statement.RETURN_GENERATED_KEYS
+            )) {
+                stmt.setString(1, flight.getFlightNumber());
+                stmt.setTimestamp(2, Timestamp.valueOf(flight.getDepartureTime()));
+                stmt.setTimestamp(3, Timestamp.valueOf(flight.getArrivalTime()));
+                stmt.setString(4, flight.getStatus().name());
+                stmt.setInt(5, flight.getAvailableSeats());
+                stmt.setDouble(6, flight.getPrice());
+                stmt.setInt(7, flight.getAircraft().getAircraftId());
+                stmt.setInt(8, flight.getRoute().getRouteId());
+                stmt.setInt(9, airlineId);
+        
+                int affected = stmt.executeUpdate();
+                if (affected == 0) {
+                    throw new SQLException("Saving flight failed, no rows affected.");
+                }
+        
+                // Get generated flight_id
+                try (ResultSet rs = stmt.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        generatedFlightId = rs.getInt(1);
+                    } else {
+                        throw new SQLException("Failed to retrieve generated flight_id.");
+                    }
+                }
+            }
+        
+            // Automatically create seats for the new flight
+            // Use aircraft's totalSeats instead of flight.getAvailableSeats()
+            // because the aircraft determines the actual number of seats
+            SeatDAO seatDAO = new SeatDAOImpl();
+            seatDAO.createSeatsForFlight(generatedFlightId, totalSeats);
+            
+            // Commit transaction if everything succeeded
+            TransactionManager.commit(conn);
+        
+        } catch (SQLException e) {
+            // Rollback transaction if anything fails
+            TransactionManager.rollback(conn);
+            throw e;
+        }
+    
+        // OPTIONAL: store flightId into Flight object if you add a field later
+        // flight.setFlightId(generatedFlightId);
+    
         return flight;
     }
+    
 
     @Override
     public Flight findById(Integer id) throws SQLException {
@@ -112,6 +159,24 @@ public class FlightDAOImpl implements FlightDAO {
         }
 
         return null;
+    }
+
+    @Override
+    public List<Flight> findByAircraftId(Integer aircraftId) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        List<Flight> list = new ArrayList<>();
+
+        try (PreparedStatement stmt = conn.prepareStatement(SELECT_BY_AIRCRAFT_ID_SQL)) {
+            stmt.setInt(1, aircraftId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+        }
+
+        return list;
     }
 
     @Override

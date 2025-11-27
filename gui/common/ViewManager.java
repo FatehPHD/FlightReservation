@@ -32,32 +32,40 @@ public class ViewManager {
 
     /**
      * Show a view by name. Automatically wraps in JScrollPane if needed.
+     * Removes existing view with the same name to ensure fresh data is displayed.
      * @param name Unique identifier for the view
      * @param panel JPanel to display
      */
     public void showView(String name, JPanel panel) {
-        // Check if a component with this name already exists in the container
-        boolean exists = false;
+        // Remove existing component with this name if it exists
+        // This ensures fresh data is displayed, especially important after logout/login
+        Component existing = null;
         for (Component comp : container.getComponents()) {
             if (comp.getName() != null && comp.getName().equals(name)) {
-                exists = true;
+                existing = comp;
                 break;
             }
         }
         
-        // If it doesn't exist, wrap the panel in a scroll pane and add it
-        if (!exists) {
-            JScrollPane scrollPane = new JScrollPane(panel);
-            scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-            scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-            scrollPane.setBorder(null); // Remove border for cleaner look
-            scrollPane.getViewport().setBackground(panel.getBackground()); // Match background
-            scrollPane.setName(name); // Set name for identification
-            container.add(scrollPane, name);
+        if (existing != null) {
+            container.remove(existing);
         }
+        
+        // Wrap the panel in a scroll pane and add it
+        JScrollPane scrollPane = new JScrollPane(panel);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setBorder(null); // Remove border for cleaner look
+        scrollPane.getViewport().setBackground(panel.getBackground()); // Match background
+        scrollPane.setName(name); // Set name for identification
+        container.add(scrollPane, name);
         
         // Show the view
         cardLayout.show(container, name);
+        
+        // Revalidate and repaint to ensure the new component is displayed
+        container.revalidate();
+        container.repaint();
     }
 
     /**

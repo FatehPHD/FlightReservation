@@ -32,4 +32,12 @@ public interface SeatDAO extends BaseDAO<Seat, Integer> {
      * @throws SQLException if database error occurs
      */
     List<Seat> findByFlightIdAndSeatClass(Integer flightId, SeatClass seatClass) throws SQLException;
+
+    /**
+     * Create seats for a specific flight.
+     * @param flightId Flight ID
+     * @param totalSeats Total seats to create
+     * @throws SQLException if database error occurs
+     */
+    void createSeatsForFlight(int flightId, int totalSeats) throws SQLException;
 }

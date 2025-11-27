@@ -40,7 +40,7 @@ public class ServiceManager {
         this.reservationService = new ReservationService(reservationDAO, seatDAO, flightService);
         this.paymentService = new PaymentService(paymentDAO);
         this.adminService = new AdminService(flightDAO, aircraftDAO, airlineDAO, 
-                                           airportDAO, routeDAO, userDAO);
+                                           airportDAO, routeDAO, userDAO, seatDAO, reservationDAO);
     }
     
     public CustomerService getCustomerService() {

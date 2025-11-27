@@ -2,12 +2,15 @@ package businesslogic.services;
 
 import businesslogic.entities.Reservation;
 import businesslogic.entities.Customer;
+import businesslogic.entities.User;
 import businesslogic.entities.Flight;
 import businesslogic.entities.Seat;
 import businesslogic.entities.Payment;
 import businesslogic.entities.enums.ReservationStatus;
+import businesslogic.entities.enums.MembershipStatus;
 import datalayer.dao.ReservationDAO;
 import datalayer.dao.SeatDAO;
+import datalayer.database.DatabaseConnection;
 
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -189,12 +192,125 @@ public class ReservationService {
     }
     
     /**
+     * Get all reservations for any user (customer, admin, or agent).
+     * Works by looking up reservations by userId.
+     * @param user User (can be Customer, SystemAdmin, or FlightAgent)
+     * @return List of user's reservations
+     */
+    public List<Reservation> getUserReservations(User user) throws SQLException {
+        if (user == null) {
+            throw new IllegalArgumentException("User is required");
+        }
+        
+        return reservationDAO.findByCustomerId(user.getUserId());
+    }
+    
+    /**
+     * Create a reservation for any user (customer, admin, or agent).
+     * If user is not a Customer, converts them to a Customer object for the reservation.
+     * @param user User making the reservation (can be Customer, SystemAdmin, or FlightAgent)
+     * @param flight Flight being reserved
+     * @param selectedSeats List of seats to reserve
+     * @return Created reservation or null if creation failed
+     */
+    public Reservation createReservationForUser(User user, Flight flight, 
+                                               List<Seat> selectedSeats) throws SQLException {
+        if (user == null || flight == null || selectedSeats == null || selectedSeats.isEmpty()) {
+            throw new IllegalArgumentException("User, flight, and seats are required");
+        }
+        
+        // Convert User to Customer if needed
+        Customer customer;
+        if (user instanceof Customer) {
+            customer = (Customer) user;
+        } else {
+            // Create a Customer object from User data for reservation purposes
+            customer = new Customer();
+            customer.setUserId(user.getUserId());
+            customer.setUsername(user.getUsername());
+            customer.setPassword(user.getPassword());
+            customer.setEmail(user.getEmail());
+            customer.setRole(user.getRole());
+            // Set default values for customer fields if not available
+            customer.setFirstName(user.getUsername()); // Use username as fallback
+            customer.setMembershipStatus(MembershipStatus.REGULAR);
+        }
+        
+        return createReservation(customer, flight, selectedSeats);
+    }
+    
+    /**
      * Get reservation by ID.
      * @param reservationId Reservation ID
      * @return Reservation or null if not found
      */
     public Reservation getReservationById(int reservationId) throws SQLException {
         return reservationDAO.findById(reservationId);
+    }
+    
+    /**
+     * Get available seats for a flight.
+     * Uses SeatDAO to retrieve all seats for the flight and filters by availability.
+     * @param flight Flight to get seats for
+     * @return List of available seats for the flight
+     */
+    public List<Seat> getAvailableSeatsForFlight(Flight flight) throws SQLException {
+        if (flight == null) {
+            throw new IllegalArgumentException("Flight is required");
+        }
+        
+        // Get flight_id from database using flight number
+        Integer flightId = getFlightIdByNumber(flight.getFlightNumber());
+        if (flightId == null) {
+            throw new SQLException("Flight not found: " + flight.getFlightNumber());
+        }
+        
+        // Get available seats using SeatDAO
+        return seatDAO.findAvailableSeatsByFlightId(flightId);
+    }
+    
+    /**
+     * Get all seats for a flight (available and unavailable).
+     * Uses SeatDAO to retrieve all seats for the flight.
+     * @param flight Flight to get seats for
+     * @return List of all seats for the flight
+     */
+    public List<Seat> getAllSeatsForFlight(Flight flight) throws SQLException {
+        if (flight == null) {
+            throw new IllegalArgumentException("Flight is required");
+        }
+        
+        // Get flight_id from database using flight number
+        Integer flightId = getFlightIdByNumber(flight.getFlightNumber());
+        if (flightId == null) {
+            throw new SQLException("Flight not found: " + flight.getFlightNumber());
+        }
+        
+        // Get all seats using SeatDAO
+        return seatDAO.findByFlightId(flightId);
+    }
+    
+    /**
+     * Get flight_id from database using flight number.
+     * @param flightNumber Flight number
+     * @return Flight ID or null if not found
+     */
+    private Integer getFlightIdByNumber(String flightNumber) throws SQLException {
+        if (flightNumber == null || flightNumber.isEmpty()) {
+            return null;
+        }
+        
+        java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
+        try (java.sql.PreparedStatement stmt = conn.prepareStatement(
+                "SELECT flight_id FROM flights WHERE flight_number = ?")) {
+            stmt.setString(1, flightNumber);
+            try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("flight_id");
+                }
+            }
+        }
+        return null;
     }
     
     /**

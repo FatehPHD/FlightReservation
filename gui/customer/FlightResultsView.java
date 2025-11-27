@@ -201,16 +201,7 @@ public class FlightResultsView extends JPanel {
      * Handle booking a flight - navigate to seat selection.
      */
     private void handleBookFlight(Flight flight) {
-        // TODO: Navigate to SeatSelectionView when implemented
-        // For now, show a message
-        JOptionPane.showMessageDialog(this,
-            "Booking flight: " + flight.getFlightNumber() + "\n" +
-            "Seat selection will be implemented next.",
-            "Book Flight",
-            JOptionPane.INFORMATION_MESSAGE);
-        
-        // When SeatSelectionView is implemented, use:
-        // viewManager.showView("SEAT_SELECTION", 
-        //     new SeatSelectionView(viewManager, flight));
+        viewManager.showView("SEAT_SELECTION", 
+            new SeatSelectionView(viewManager, flight));
     }
 }

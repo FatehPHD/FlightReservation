@@ -67,6 +67,8 @@ public class SeatDAOImpl implements SeatDAO {
         return seat;
     }
 
+
+
     @Override
     public Seat findById(Integer id) throws SQLException {
         Connection conn = DatabaseConnection.getInstance().getConnection();
@@ -217,5 +219,35 @@ public class SeatDAOImpl implements SeatDAO {
 
         return seat;
     }
+
+    @Override
+    public void createSeatsForFlight(int flightId, int totalSeats) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+
+        try (PreparedStatement stmt = conn.prepareStatement(
+            "INSERT INTO seats (flight_id, seat_number, seat_class, is_available) VALUES (?, ?, ?, ?)"
+        )) {
+            for (int i = 1; i <= totalSeats; i++) {
+
+                String seatNumber = generateSeatNumber(i); // e.g., 12A
+
+                stmt.setInt(1, flightId);
+                stmt.setString(2, seatNumber);
+                stmt.setString(3, "ECONOMY");
+                stmt.setBoolean(4, true);
+
+                stmt.addBatch();
+            }
+
+            stmt.executeBatch();
+        }
+    }
+
+    private String generateSeatNumber(int index) {
+        int row = ((index - 1) / 6) + 1; // 6 seats per row
+        char col = (char) ('A' + ((index - 1) % 6));
+        return row + String.valueOf(col);
+    }
+
 }
 
