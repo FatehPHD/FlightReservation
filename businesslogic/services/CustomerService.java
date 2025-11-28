@@ -2,91 +2,107 @@ package businesslogic.services;
 
 import businesslogic.entities.Customer;
 import businesslogic.entities.User;
+import businesslogic.entities.Reservation;
 import businesslogic.entities.enums.MembershipStatus;
 import businesslogic.entities.enums.UserRole;
 import datalayer.dao.UserDAO;
 import datalayer.dao.ReservationDAO;
-import businesslogic.entities.Reservation;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Service class for customer-related business logic.
- * Handles customer profile management and operations.
+ * CustomerService - Handles customer-related business logic.
+ *
+ * Location: businesslogic/services/CustomerService.java
  */
 public class CustomerService {
-    
-    private UserDAO userDAO;
-    private ReservationDAO reservationDAO;
-    
+
+    private final UserDAO userDAO;
+    private final ReservationDAO reservationDAO;
+
     public CustomerService(UserDAO userDAO, ReservationDAO reservationDAO) {
         this.userDAO = userDAO;
         this.reservationDAO = reservationDAO;
     }
-    
+
+    // ============================================================
+    // Customer creation / retrieval
+    // ============================================================
+
     /**
      * Create a new customer account.
-     * @param username Username (must be unique)
-     * @param password Password
-     * @param email Email (must be unique)
-     * @param firstName First name
-     * @param lastName Last name
-     * @param phone Phone number
-     * @param address Address
-     * @param dateOfBirth Date of birth
-     * @return Created customer
+     *
+     * @param username    Username (must be unique)
+     * @param password    Password
+     * @param email       Email address
+     * @param firstName   First name
+     * @param lastName    Last name
+     * @param phone       Phone number (optional)
+     * @param address     Address (optional)
+     * @param dateOfBirth Date of birth (optional)
+     * @return Created Customer object
+     * @throws SQLException             if database error occurs
+     * @throws IllegalStateException    if username already exists
+     * @throws IllegalArgumentException if validation fails
      */
     public Customer createCustomer(String username, String password, String email,
-                                  String firstName, String lastName, String phone,
-                                  String address, LocalDate dateOfBirth) throws SQLException {
-        if (username == null || username.isEmpty()) {
-            throw new IllegalArgumentException("Username is required");
+                                   String firstName, String lastName,
+                                   String phone, String address, LocalDate dateOfBirth) throws SQLException {
+
+        // Normalize inputs
+        String trimmedUsername = username != null ? username.trim() : null;
+        String trimmedEmail = email != null ? email.trim() : null;
+        String trimmedFirstName = firstName != null ? firstName.trim() : null;
+        String trimmedLastName = lastName != null ? lastName.trim() : null;
+        String trimmedPhone = phone != null ? phone.trim() : null;
+        String trimmedAddress = address != null ? address.trim() : null;
+
+        // Validate required fields
+        if (trimmedUsername == null || trimmedUsername.isEmpty()) {
+            throw new IllegalArgumentException("Username is required.");
         }
-        if (password == null || password.isEmpty()) {
-            throw new IllegalArgumentException("Password is required");
+        if (password == null || password.trim().isEmpty()) {
+            throw new IllegalArgumentException("Password is required.");
         }
-        if (email == null || email.isEmpty()) {
-            throw new IllegalArgumentException("Email is required");
+        if (trimmedEmail == null || trimmedEmail.isEmpty()) {
+            throw new IllegalArgumentException("Email is required.");
         }
-        
+        if (trimmedFirstName == null || trimmedFirstName.isEmpty()) {
+            throw new IllegalArgumentException("First name is required.");
+        }
+        if (trimmedLastName == null || trimmedLastName.isEmpty()) {
+            throw new IllegalArgumentException("Last name is required.");
+        }
+
         // Check if username already exists
-        User existingUser = userDAO.findByUsername(username);
+        User existingUser = userDAO.findByUsername(trimmedUsername);
         if (existingUser != null) {
-            throw new IllegalStateException("Username already exists");
+            throw new IllegalStateException("Username already exists: " + trimmedUsername);
         }
-        
-        Customer customer = new Customer();
-        customer.setUsername(username);
-        customer.setPassword(password); // In production, this should be hashed
-        customer.setEmail(email);
-        customer.setRole(UserRole.CUSTOMER);
-        customer.setFirstName(firstName);
-        customer.setLastName(lastName);
-        customer.setPhone(phone);
-        customer.setAddress(address);
-        customer.setDateOfBirth(dateOfBirth);
-        customer.setMembershipStatus(MembershipStatus.REGULAR); // Default to REGULAR
-        
+
+        // Create customer (new customers start as REGULAR)
+        Customer customer = new Customer(
+                0, // ID generated by DB
+                trimmedUsername,
+                password,              // In production, hash the password
+                trimmedEmail,
+                UserRole.CUSTOMER,
+                trimmedFirstName,
+                trimmedLastName,
+                trimmedPhone,
+                trimmedAddress,
+                dateOfBirth,
+                MembershipStatus.REGULAR
+        );
+
         return (Customer) userDAO.save(customer);
     }
-    
-    /**
-     * Get customer by username.
-     * @param username Username
-     * @return Customer or null if not found
-     */
-    public Customer getCustomerByUsername(String username) throws SQLException {
-        User user = userDAO.findByUsername(username);
-        if (user instanceof Customer) {
-            return (Customer) user;
-        }
-        return null;
-    }
-    
+
     /**
      * Get customer by ID.
+     *
      * @param customerId Customer ID
      * @return Customer or null if not found
      */
@@ -97,33 +113,119 @@ public class CustomerService {
         }
         return null;
     }
-    
+
     /**
-     * Update customer profile information.
-     * @param customer Customer to update
-     * @return true if update successful
+     * Get customer by username.
+     *
+     * @param username Username
+     * @return Customer or null if not found
      */
-    public boolean updateCustomerProfile(Customer customer) throws SQLException {
-        if (customer == null || customer.getUserId() <= 0) {
-            throw new IllegalArgumentException("Valid customer is required");
+    public Customer getCustomerByUsername(String username) throws SQLException {
+        User user = userDAO.findByUsername(username);
+        if (user instanceof Customer) {
+            return (Customer) user;
         }
-        
+        return null;
+    }
+
+    /**
+     * Get all customers.
+     *
+     * @return List of all customers
+     */
+    public List<Customer> getAllCustomers() throws SQLException {
+        return userDAO.findAllCustomers();
+    }
+
+    // ============================================================
+    // Update profile / account management
+    // ============================================================
+
+    /**
+     * Update customer profile.
+     * Ensures the customer exists and keeps role as CUSTOMER.
+     *
+     * @param customer Customer with updated information
+     * @return true if update was successful
+     */
+    public boolean updateCustomer(Customer customer) throws SQLException {
+        if (customer == null || customer.getUserId() <= 0) {
+            throw new IllegalArgumentException("Valid customer is required.");
+        }
+
         // Verify customer exists
         Customer existing = getCustomerById(customer.getUserId());
         if (existing == null) {
             return false;
         }
-        
-        // Ensure role is still CUSTOMER
+
+        // Ensure role remains CUSTOMER
         customer.setRole(UserRole.CUSTOMER);
-        
+
         return userDAO.update(customer);
     }
-    
+
     /**
-     * Update customer membership status.
+     * Alias kept from File 2 for compatibility.
+     */
+    public boolean updateCustomerProfile(Customer customer) throws SQLException {
+        return updateCustomer(customer);
+    }
+
+    /**
+     * Delete a customer account.
+     *
+     * @param customerId Customer ID to delete
+     * @return true if deletion was successful
+     */
+    public boolean deleteCustomer(int customerId) throws SQLException {
+        return userDAO.delete(customerId);
+    }
+
+    // ============================================================
+    // Membership management
+    // ============================================================
+
+    /**
+     * Automatically update customer membership status based on booking history.
+     * REGULAR / SILVER / GOLD / PLATINUM thresholds are based on total reservations.
+     *
      * @param customerId Customer ID
-     * @param newStatus New membership status
+     * @return Updated Customer
+     */
+    public Customer updateMembershipStatus(int customerId) throws SQLException {
+        Customer customer = getCustomerById(customerId);
+        if (customer == null) {
+            throw new IllegalArgumentException("Customer not found: " + customerId);
+        }
+
+        List<Reservation> reservations = reservationDAO.findByCustomerId(customerId);
+        int bookingCount = reservations.size();
+
+        MembershipStatus newStatus;
+        if (bookingCount >= 50) {
+            newStatus = MembershipStatus.PLATINUM;
+        } else if (bookingCount >= 25) {
+            newStatus = MembershipStatus.GOLD;
+        } else if (bookingCount >= 10) {
+            newStatus = MembershipStatus.SILVER;
+        } else {
+            newStatus = MembershipStatus.REGULAR;
+        }
+
+        if (customer.getMembershipStatus() != newStatus) {
+            customer.setMembershipStatus(newStatus);
+            userDAO.update(customer);
+        }
+
+        return customer;
+    }
+
+    /**
+     * Manually update customer membership status.
+     *
+     * @param customerId Customer ID
+     * @param newStatus  New membership status
      * @return true if update successful
      */
     public boolean updateMembershipStatus(int customerId, MembershipStatus newStatus) throws SQLException {
@@ -131,26 +233,18 @@ public class CustomerService {
         if (customer == null) {
             return false;
         }
-        
+
         customer.setMembershipStatus(newStatus);
         return userDAO.update(customer);
     }
-    
-    /**
-     * Get customer's booking history.
-     * @param customer Customer
-     * @return List of customer's reservations
-     */
-    public List<Reservation> getBookingHistory(Customer customer) throws SQLException {
-        if (customer == null) {
-            throw new IllegalArgumentException("Customer is required");
-        }
-        
-        return reservationDAO.findByCustomerId(customer.getUserId());
-    }
-    
+
+    // ============================================================
+    // Authentication / password management
+    // ============================================================
+
     /**
      * Authenticate customer (login).
+     *
      * @param username Username
      * @param password Password
      * @return Customer if authentication successful, null otherwise
@@ -159,25 +253,74 @@ public class CustomerService {
         if (username == null || password == null) {
             return null;
         }
-        
+
         Customer customer = getCustomerByUsername(username);
         if (customer == null) {
             return null;
         }
-        
+
         // Simple password check (in production, use hashed passwords)
         if (password.equals(customer.getPassword())) {
             return customer;
         }
-        
+
         return null;
     }
-    
+
     /**
-     * Get all customers.
-     * @return List of all customers
+     * Alias kept from File 1 for compatibility.
      */
-    public List<Customer> getAllCustomers() throws SQLException {
-        return userDAO.findAllCustomers();
+    public Customer authenticateCustomer(String username, String password) throws SQLException {
+        return authenticate(username, password);
+    }
+
+    /**
+     * Change customer password.
+     *
+     * @param customerId  Customer ID
+     * @param oldPassword Current password
+     * @param newPassword New password
+     * @return true if password change was successful
+     * @throws IllegalArgumentException if old password is incorrect or new password is invalid
+     */
+    public boolean changePassword(int customerId, String oldPassword, String newPassword) throws SQLException {
+        Customer customer = getCustomerById(customerId);
+        if (customer == null) {
+            throw new IllegalArgumentException("Customer not found: " + customerId);
+        }
+
+        // Verify old password
+        if (!customer.getPassword().equals(oldPassword)) {
+            throw new IllegalArgumentException("Current password is incorrect.");
+        }
+
+        // Validate new password
+        if (newPassword == null || newPassword.length() < 4) {
+            throw new IllegalArgumentException("New password must be at least 4 characters.");
+        }
+
+        customer.setPassword(newPassword);
+        return userDAO.update(customer);
+    }
+
+    // ============================================================
+    // Reservations / history
+    // ============================================================
+
+    /**
+     * Get customer's reservation history by ID.
+     */
+    public List<Reservation> getCustomerReservations(int customerId) throws SQLException {
+        return reservationDAO.findByCustomerId(customerId);
+    }
+
+    /**
+     * Get customer's booking history by Customer object.
+     */
+    public List<Reservation> getBookingHistory(Customer customer) throws SQLException {
+        if (customer == null) {
+            throw new IllegalArgumentException("Customer is required");
+        }
+        return reservationDAO.findByCustomerId(customer.getUserId());
     }
 }

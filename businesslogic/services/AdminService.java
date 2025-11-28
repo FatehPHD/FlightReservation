@@ -1,22 +1,28 @@
 package businesslogic.services;
 
-import businesslogic.entities.Flight;
 import businesslogic.entities.Aircraft;
 import businesslogic.entities.Airline;
 import businesslogic.entities.Airport;
+import businesslogic.entities.Customer;
+import businesslogic.entities.Flight;
+import businesslogic.entities.FlightAgent;
+import businesslogic.entities.Payment;
+import businesslogic.entities.Reservation;
 import businesslogic.entities.Route;
+import businesslogic.entities.Seat;
 import businesslogic.entities.SystemAdmin;
 import businesslogic.entities.User;
 import businesslogic.entities.enums.FlightStatus;
-import datalayer.dao.FlightDAO;
 import datalayer.dao.AircraftDAO;
 import datalayer.dao.AirlineDAO;
 import datalayer.dao.AirportDAO;
-import datalayer.dao.RouteDAO;
-import datalayer.dao.UserDAO;
-import datalayer.dao.SeatDAO;
-import datalayer.dao.ReservationDAO;
+import datalayer.dao.FlightDAO;
 import datalayer.dao.PaymentDAO;
+import datalayer.dao.ReservationDAO;
+import datalayer.dao.RouteDAO;
+import datalayer.dao.SeatDAO;
+import datalayer.dao.UserDAO;
+import datalayer.database.DatabaseConnection;
 import datalayer.database.TransactionManager;
 
 import java.sql.Connection;
@@ -24,29 +30,56 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Service class for system administrator operations.
- * Handles management of flights, routes, aircraft, and other system data.
+ * AdminService - Handles administrative operations.
+ * Provides management of flights, aircraft, airlines, airports, routes, users,
+ * reservations, and payments, including cascading deletes and reporting.
+ *
+ * Location: businesslogic/services/AdminService.java
  */
 public class AdminService {
-    
-    private FlightDAO flightDAO;
-    private AircraftDAO aircraftDAO;
-    private AirlineDAO airlineDAO;
-    private AirportDAO airportDAO;
-    private RouteDAO routeDAO;
-    private UserDAO userDAO;
-    private SeatDAO seatDAO;
-    private ReservationDAO reservationDAO;
-    private PaymentDAO paymentDAO;
-    
-    public AdminService(FlightDAO flightDAO, AircraftDAO aircraftDAO,
-                       AirlineDAO airlineDAO, AirportDAO airportDAO,
-                       RouteDAO routeDAO, UserDAO userDAO, SeatDAO seatDAO,
-                       ReservationDAO reservationDAO, PaymentDAO paymentDAO) {
+
+    private final FlightDAO flightDAO;
+    private final AircraftDAO aircraftDAO;
+    private final AirlineDAO airlineDAO;
+    private final AirportDAO airportDAO;
+    private final RouteDAO routeDAO;
+    private final UserDAO userDAO;
+    private final SeatDAO seatDAO;
+    private final ReservationDAO reservationDAO;
+    private final PaymentDAO paymentDAO;
+
+    /**
+     * Original simpler constructor (no PaymentDAO).
+     * Methods that require PaymentDAO will fail if paymentDAO is null.
+     */
+    public AdminService(FlightDAO flightDAO,
+                        AircraftDAO aircraftDAO,
+                        AirlineDAO airlineDAO,
+                        AirportDAO airportDAO,
+                        RouteDAO routeDAO,
+                        UserDAO userDAO,
+                        SeatDAO seatDAO,
+                        ReservationDAO reservationDAO) {
+        this(flightDAO, aircraftDAO, airlineDAO, airportDAO, routeDAO, userDAO, seatDAO, reservationDAO, null);
+    }
+
+    /**
+     * Full constructor with PaymentDAO support.
+     */
+    public AdminService(FlightDAO flightDAO,
+                        AircraftDAO aircraftDAO,
+                        AirlineDAO airlineDAO,
+                        AirportDAO airportDAO,
+                        RouteDAO routeDAO,
+                        UserDAO userDAO,
+                        SeatDAO seatDAO,
+                        ReservationDAO reservationDAO,
+                        PaymentDAO paymentDAO) {
         this.flightDAO = flightDAO;
         this.aircraftDAO = aircraftDAO;
         this.airlineDAO = airlineDAO;
@@ -57,83 +90,63 @@ public class AdminService {
         this.reservationDAO = reservationDAO;
         this.paymentDAO = paymentDAO;
     }
-    
-    // ========== Flight Management ==========
-    
+
+    // ============================================================
+    // Flight Management
+    // ============================================================
+
     /**
      * Add a new flight.
-     * @param flight Flight to add
-     * @return Created flight
+     * Validates details and ensures flight number is unique.
      */
     public Flight addFlight(Flight flight) throws SQLException {
-        if (flight == null) {
-            throw new IllegalArgumentException("Flight is required");
-        }
-        
-        if (flight.getFlightNumber() == null || flight.getFlightNumber().isEmpty()) {
-            throw new IllegalArgumentException("Flight number is required");
-        }
-        
+        validateFlight(flight);
+
         // Validate flight number is unique
         Flight existing = getFlightByNumber(flight.getFlightNumber());
         if (existing != null) {
             throw new IllegalStateException("Flight number already exists");
         }
-        
+
         return flightDAO.save(flight);
     }
-    
+
     /**
-     * Update flight details.
-     * @param flight Flight to update
-     * @return true if update successful
+     * Update an existing flight.
      */
     public boolean updateFlight(Flight flight) throws SQLException {
-        if (flight == null || flight.getFlightNumber() == null) {
-            throw new IllegalArgumentException("Valid flight is required");
-        }
-        
+        validateFlight(flight);
         return flightDAO.update(flight);
     }
-    
+
     /**
-     * Remove a flight (set status to CANCELLED or delete).
-     * @param flightNumber Flight number
-     * @return true if removal successful
+     * Cancel a flight (set status to CANCELLED).
      */
     public boolean removeFlight(String flightNumber) throws SQLException {
         Flight flight = getFlightByNumber(flightNumber);
         if (flight == null) {
             return false;
         }
-        
-        // Option 1: Cancel the flight
+
         flight.setStatus(FlightStatus.CANCELLED);
         return flightDAO.update(flight);
-        
-        // Option 2: Delete the flight (uncomment if preferred)
-        // return flightDAO.delete(flight.getFlightId());
     }
-    
+
     /**
      * Delete a flight permanently from the database.
-     * This method handles cascading deletes for all related entities:
-     * 1. Deletes tickets (which reference reservations and seats)
-     * 2. Deletes reservations (which reference flights)
-     * 3. Deletes seats (which reference flights)
-     * 4. Deletes the flight itself
-     * 
-     * @param flightNumber Flight number
-     * @return true if deletion successful
+     * Cascades:
+     * 1. Delete tickets for reservations on this flight
+     * 2. Delete reservations
+     * 3. Delete seats
+     * 4. Delete the flight itself
      */
     public boolean deleteFlight(String flightNumber) throws SQLException {
         Flight flight = getFlightByNumber(flightNumber);
         if (flight == null) {
             return false;
         }
-        
-        // Get flight_id from database
-        Connection conn = datalayer.database.DatabaseConnection.getInstance().getConnection();
+
+        Connection conn = DatabaseConnection.getInstance().getConnection();
         Integer flightId = null;
         try (PreparedStatement stmt = conn.prepareStatement(
                 "SELECT flight_id FROM flights WHERE flight_number = ?")) {
@@ -144,193 +157,185 @@ public class AdminService {
                 }
             }
         }
-        
+
         if (flightId == null) {
             return false;
         }
-        
-        // Use transaction to ensure atomicity
+
         TransactionManager.begin(conn);
         try {
-            // Step 1: Delete all tickets for reservations of this flight
-            // (Tickets reference both reservations and seats)
-            java.util.List<businesslogic.entities.Reservation> reservations = reservationDAO.findByFlightId(flightId);
-            for (businesslogic.entities.Reservation reservation : reservations) {
-                // Delete tickets for this reservation
+            // Delete tickets for reservations on this flight
+            List<Reservation> reservations = reservationDAO.findByFlightId(flightId);
+            for (Reservation reservation : reservations) {
                 try (PreparedStatement deleteTicketsStmt = conn.prepareStatement(
                         "DELETE FROM tickets WHERE reservation_id = ?")) {
                     deleteTicketsStmt.setInt(1, reservation.getReservationId());
                     deleteTicketsStmt.executeUpdate();
                 }
             }
-            
-            // Step 2: Delete all reservations for this flight
-            for (businesslogic.entities.Reservation reservation : reservations) {
+
+            // Delete reservations
+            for (Reservation reservation : reservations) {
                 reservationDAO.delete(reservation.getReservationId());
             }
-            
-            // Step 3: Delete all seats for this flight
-            java.util.List<businesslogic.entities.Seat> seats = seatDAO.findByFlightId(flightId);
-            for (businesslogic.entities.Seat seat : seats) {
+
+            // Delete seats
+            List<Seat> seats = seatDAO.findByFlightId(flightId);
+            for (Seat seat : seats) {
                 seatDAO.delete(seat.getSeatId());
             }
-            
-            // Step 4: Delete the flight itself
+
+            // Delete flight
             boolean success = flightDAO.delete(flightId);
-            
+
             if (success) {
                 TransactionManager.commit(conn);
             } else {
                 TransactionManager.rollback(conn);
             }
-            
+
             return success;
         } catch (SQLException e) {
             TransactionManager.rollback(conn);
             throw e;
         }
     }
-    
+
     /**
      * Get flight by flight number.
-     * @param flightNumber Flight number
-     * @return Flight or null if not found
      */
     public Flight getFlightByNumber(String flightNumber) throws SQLException {
         return flightDAO.findByFlightNumber(flightNumber);
     }
-    
+
     /**
      * Get all flights.
-     * @return List of all flights
      */
     public List<Flight> getAllFlights() throws SQLException {
         return flightDAO.findAll();
     }
-    
-    // ========== Aircraft Management ==========
-    
+
+    private void validateFlight(Flight flight) {
+        if (flight == null) {
+            throw new IllegalArgumentException("Flight is required.");
+        }
+        if (flight.getFlightNumber() == null || flight.getFlightNumber().trim().isEmpty()) {
+            throw new IllegalArgumentException("Flight number is required.");
+        }
+        if (flight.getDepartureTime() == null) {
+            throw new IllegalArgumentException("Departure time is required.");
+        }
+        if (flight.getArrivalTime() == null) {
+            throw new IllegalArgumentException("Arrival time is required.");
+        }
+        if (flight.getAircraft() == null) {
+            throw new IllegalArgumentException("Aircraft is required.");
+        }
+        if (flight.getRoute() == null) {
+            throw new IllegalArgumentException("Route is required.");
+        }
+        if (flight.getPrice() < 0) {
+            throw new IllegalArgumentException("Price cannot be negative.");
+        }
+    }
+
+    // ============================================================
+    // Aircraft Management
+    // ============================================================
+
     /**
      * Add a new aircraft.
-     * @param aircraft Aircraft to add
-     * @return Created aircraft
      */
     public Aircraft addAircraft(Aircraft aircraft) throws SQLException {
-        if (aircraft == null) {
-            throw new IllegalArgumentException("Aircraft is required");
-        }
-        
+        validateAircraft(aircraft);
         return aircraftDAO.save(aircraft);
     }
-    
+
     /**
-     * Update aircraft details.
-     * If aircraft status is changed to MAINTENANCE or INACTIVE,
-     * automatically updates all upcoming scheduled flights using this aircraft:
-     * - MAINTENANCE → flights set to DELAYED
-     * - INACTIVE → flights set to CANCELLED
-     * 
-     * @param aircraft Aircraft to update
-     * @return true if update successful
+     * Update aircraft details and update related flights when status changes.
+     *
+     * Status transitions:
+     * - ACTIVE: restore DELAYED/CANCELLED flights to SCHEDULED
+     * - MAINTENANCE: SCHEDULED/CANCELLED → DELAYED
+     * - INACTIVE: SCHEDULED/DELAYED → CANCELLED
      */
     public boolean updateAircraft(Aircraft aircraft) throws SQLException {
         if (aircraft == null || aircraft.getAircraftId() <= 0) {
             throw new IllegalArgumentException("Valid aircraft is required");
         }
-        
-        // Get old aircraft status before updating
+
+        validateAircraft(aircraft);
+
         Aircraft oldAircraft = aircraftDAO.findById(aircraft.getAircraftId());
         if (oldAircraft == null) {
             return false;
         }
-        
+
         String oldStatus = oldAircraft.getStatus();
         String newStatus = aircraft.getStatus();
-        
-        // Update the aircraft
+
         boolean success = aircraftDAO.update(aircraft);
-        
         if (!success) {
             return false;
         }
-        
-        // Always update related flights when status changes
+
+        // Only if status actually changed
         if (newStatus != null && !newStatus.equals(oldStatus)) {
             updateRelatedFlights(aircraft.getAircraftId(), oldStatus, newStatus);
         }
-        
+
         return true;
     }
-    
+
     /**
      * Update all upcoming flights for an aircraft based on status change.
-     * Handles all transitions:
-     * - ACTIVE: Restore DELAYED/CANCELLED flights to SCHEDULED
-     * - MAINTENANCE: Set SCHEDULED/CANCELLED flights to DELAYED
-     * - INACTIVE: Set SCHEDULED/DELAYED flights to CANCELLED
-     * 
-     * @param aircraftId Aircraft ID
-     * @param oldStatus Previous aircraft status
-     * @param newStatus New aircraft status
      */
     private void updateRelatedFlights(int aircraftId, String oldStatus, String newStatus) throws SQLException {
-        // Get all flights using this aircraft
         List<Flight> flights = flightDAO.findByAircraftId(aircraftId);
-        
         if (flights.isEmpty()) {
             return;
         }
-        
-        // Filter for upcoming flights (departure time in the future)
+
         LocalDateTime now = LocalDateTime.now();
         List<Flight> upcomingFlights = flights.stream()
-            .filter(flight -> flight.getDepartureTime() != null && 
-                             flight.getDepartureTime().isAfter(now))
-            .collect(Collectors.toList());
-        
+                .filter(f -> f.getDepartureTime() != null && f.getDepartureTime().isAfter(now))
+                .collect(Collectors.toList());
+
         if (upcomingFlights.isEmpty()) {
             return;
         }
-        
-        // Determine which flights to update and their new status based on transition
-        List<Flight> flightsToUpdate = new java.util.ArrayList<>();
+
+        List<Flight> flightsToUpdate = new ArrayList<>();
         FlightStatus targetStatus = null;
-        
+
         if ("ACTIVE".equals(newStatus)) {
-            // Restore flights that were affected by previous status
-            // Restore DELAYED or CANCELLED flights back to SCHEDULED
             flightsToUpdate = upcomingFlights.stream()
-                .filter(flight -> flight.getStatus() == FlightStatus.DELAYED || 
-                                 flight.getStatus() == FlightStatus.CANCELLED)
-                .collect(Collectors.toList());
+                    .filter(f -> f.getStatus() == FlightStatus.DELAYED ||
+                                 f.getStatus() == FlightStatus.CANCELLED)
+                    .collect(Collectors.toList());
             targetStatus = FlightStatus.SCHEDULED;
         } else if ("MAINTENANCE".equals(newStatus)) {
-            // Set SCHEDULED and CANCELLED flights to DELAYED
             flightsToUpdate = upcomingFlights.stream()
-                .filter(flight -> flight.getStatus() == FlightStatus.SCHEDULED || 
-                                 flight.getStatus() == FlightStatus.CANCELLED)
-                .collect(Collectors.toList());
+                    .filter(f -> f.getStatus() == FlightStatus.SCHEDULED ||
+                                 f.getStatus() == FlightStatus.CANCELLED)
+                    .collect(Collectors.toList());
             targetStatus = FlightStatus.DELAYED;
         } else if ("INACTIVE".equals(newStatus)) {
-            // Set SCHEDULED and DELAYED flights to CANCELLED
             flightsToUpdate = upcomingFlights.stream()
-                .filter(flight -> flight.getStatus() == FlightStatus.SCHEDULED || 
-                                 flight.getStatus() == FlightStatus.DELAYED)
-                .collect(Collectors.toList());
+                    .filter(f -> f.getStatus() == FlightStatus.SCHEDULED ||
+                                 f.getStatus() == FlightStatus.DELAYED)
+                    .collect(Collectors.toList());
             targetStatus = FlightStatus.CANCELLED;
         }
-        
+
         if (flightsToUpdate.isEmpty() || targetStatus == null) {
             return;
         }
-        
-        // Update each flight
-        Connection conn = datalayer.database.DatabaseConnection.getInstance().getConnection();
+
+        Connection conn = DatabaseConnection.getInstance().getConnection();
         TransactionManager.begin(conn);
-        
         try {
             for (Flight flight : flightsToUpdate) {
-                // Get flight_id from database
                 Integer flightId = null;
                 try (PreparedStatement stmt = conn.prepareStatement(
                         "SELECT flight_id FROM flights WHERE flight_number = ?")) {
@@ -341,48 +346,35 @@ public class AdminService {
                         }
                     }
                 }
-                
+
                 if (flightId != null) {
-                    // Update flight status
                     flight.setStatus(targetStatus);
                     flightDAO.update(flight);
                 }
             }
-            
+
             TransactionManager.commit(conn);
         } catch (SQLException e) {
             TransactionManager.rollback(conn);
             throw e;
         }
     }
-    
+
     /**
-     * Remove an aircraft.
-     * This method handles cascading deletes for all related entities:
-     * 1. Finds all flights using this aircraft
-     * 2. For each flight, deletes tickets, reservations, seats, and the flight itself
-     * 3. Deletes the aircraft
-     * 
-     * @param aircraftId Aircraft ID
-     * @return true if removal successful
+     * Remove an aircraft (cascading delete of flights and their dependencies).
      */
     public boolean removeAircraft(int aircraftId) throws SQLException {
-        // Get all flights using this aircraft
         List<Flight> flights = flightDAO.findByAircraftId(aircraftId);
-        
+
         if (flights.isEmpty()) {
-            // No flights use this aircraft, safe to delete directly
             return aircraftDAO.delete(aircraftId);
         }
-        
-        // Use transaction to ensure atomicity
-        Connection conn = datalayer.database.DatabaseConnection.getInstance().getConnection();
+
+        Connection conn = DatabaseConnection.getInstance().getConnection();
         TransactionManager.begin(conn);
-        
+
         try {
-            // Delete all flights that use this aircraft (with all their dependencies)
             for (Flight flight : flights) {
-                // Get flight_id from database
                 Integer flightId = null;
                 try (PreparedStatement stmt = conn.prepareStatement(
                         "SELECT flight_id FROM flights WHERE flight_number = ?")) {
@@ -393,115 +385,99 @@ public class AdminService {
                         }
                     }
                 }
-                
+
                 if (flightId != null) {
-                    // Step 1: Delete all tickets for reservations of this flight
-                    java.util.List<businesslogic.entities.Reservation> reservations = 
-                        reservationDAO.findByFlightId(flightId);
-                    for (businesslogic.entities.Reservation reservation : reservations) {
-                        // Delete tickets for this reservation
+                    List<Reservation> reservations = reservationDAO.findByFlightId(flightId);
+                    for (Reservation reservation : reservations) {
                         try (PreparedStatement deleteTicketsStmt = conn.prepareStatement(
                                 "DELETE FROM tickets WHERE reservation_id = ?")) {
                             deleteTicketsStmt.setInt(1, reservation.getReservationId());
                             deleteTicketsStmt.executeUpdate();
                         }
                     }
-                    
-                    // Step 2: Delete all reservations for this flight
-                    for (businesslogic.entities.Reservation reservation : reservations) {
+
+                    for (Reservation reservation : reservations) {
                         reservationDAO.delete(reservation.getReservationId());
                     }
-                    
-                    // Step 3: Delete all seats for this flight
-                    java.util.List<businesslogic.entities.Seat> seats = seatDAO.findByFlightId(flightId);
-                    for (businesslogic.entities.Seat seat : seats) {
+
+                    List<Seat> seats = seatDAO.findByFlightId(flightId);
+                    for (Seat seat : seats) {
                         seatDAO.delete(seat.getSeatId());
                     }
-                    
-                    // Step 4: Delete the flight itself
+
                     flightDAO.delete(flightId);
                 }
             }
-            
-            // Step 5: Delete the aircraft itself
+
             boolean success = aircraftDAO.delete(aircraftId);
-            
             if (success) {
                 TransactionManager.commit(conn);
             } else {
                 TransactionManager.rollback(conn);
             }
-            
+
             return success;
         } catch (SQLException e) {
             TransactionManager.rollback(conn);
             throw e;
         }
     }
-    
+
     /**
      * Get all aircraft.
-     * @return List of all aircraft
      */
     public List<Aircraft> getAllAircraft() throws SQLException {
         return aircraftDAO.findAll();
     }
-    
-    // ========== Airline Management ==========
-    
-    /**
-     * Add a new airline.
-     * @param airline Airline to add
-     * @return Created airline
-     */
+
+    private void validateAircraft(Aircraft aircraft) {
+        if (aircraft == null) {
+            throw new IllegalArgumentException("Aircraft is required.");
+        }
+        if (aircraft.getModel() == null || aircraft.getModel().trim().isEmpty()) {
+            throw new IllegalArgumentException("Aircraft model is required.");
+        }
+        if (aircraft.getManufacturer() == null || aircraft.getManufacturer().trim().isEmpty()) {
+            throw new IllegalArgumentException("Aircraft manufacturer is required.");
+        }
+        if (aircraft.getTotalSeats() <= 0) {
+            throw new IllegalArgumentException("Total seats must be greater than 0.");
+        }
+    }
+
+    // ============================================================
+    // Airline Management
+    // ============================================================
+
     public Airline addAirline(Airline airline) throws SQLException {
         if (airline == null) {
             throw new IllegalArgumentException("Airline is required");
         }
-        
         return airlineDAO.save(airline);
     }
-    
-    /**
-     * Update airline details.
-     * @param airline Airline to update
-     * @return true if update successful
-     */
+
     public boolean updateAirline(Airline airline) throws SQLException {
         if (airline == null || airline.getAirlineId() <= 0) {
             throw new IllegalArgumentException("Valid airline is required");
         }
-        
         return airlineDAO.update(airline);
     }
-    
+
     /**
-     * Remove an airline.
-     * This method handles cascading deletes for all related entities:
-     * 1. Finds all flights using this airline
-     * 2. For each flight, deletes tickets, reservations, seats, and the flight itself
-     * 3. Deletes the airline
-     * 
-     * @param airlineId Airline ID
-     * @return true if removal successful
+     * Remove an airline with cascading deletes of flights and their dependencies.
      */
     public boolean removeAirline(int airlineId) throws SQLException {
-        // Get all flights using this airline
         List<Flight> flights = flightDAO.findByAirlineId(airlineId);
-        
+
         if (flights.isEmpty()) {
-            // No flights use this airline, safe to delete directly
             return airlineDAO.delete(airlineId);
         }
-        
-        // Use transaction to ensure atomicity
-        Connection conn = datalayer.database.DatabaseConnection.getInstance().getConnection();
+
+        Connection conn = DatabaseConnection.getInstance().getConnection();
         TransactionManager.begin(conn);
-        
+
         try {
-            // Delete all flights that use this airline (with all their dependencies)
             for (Flight flight : flights) {
-                // Get flight_id from database
                 Integer flightId = null;
                 try (PreparedStatement stmt = conn.prepareStatement(
                         "SELECT flight_id FROM flights WHERE flight_number = ?")) {
@@ -512,127 +488,91 @@ public class AdminService {
                         }
                     }
                 }
-                
+
                 if (flightId != null) {
-                    // Step 1: Delete all tickets for reservations of this flight
-                    // (Tickets reference both reservations and seats)
-                    java.util.List<businesslogic.entities.Reservation> reservations = 
-                        reservationDAO.findByFlightId(flightId);
-                    for (businesslogic.entities.Reservation reservation : reservations) {
-                        // Delete tickets for this reservation
+                    List<Reservation> reservations = reservationDAO.findByFlightId(flightId);
+                    for (Reservation reservation : reservations) {
                         try (PreparedStatement deleteTicketsStmt = conn.prepareStatement(
                                 "DELETE FROM tickets WHERE reservation_id = ?")) {
                             deleteTicketsStmt.setInt(1, reservation.getReservationId());
                             deleteTicketsStmt.executeUpdate();
                         }
                     }
-                    
-                    // Step 2: Delete all reservations for this flight
-                    for (businesslogic.entities.Reservation reservation : reservations) {
+
+                    for (Reservation reservation : reservations) {
                         reservationDAO.delete(reservation.getReservationId());
                     }
-                    
-                    // Step 3: Delete all seats for this flight
-                    java.util.List<businesslogic.entities.Seat> seats = seatDAO.findByFlightId(flightId);
-                    for (businesslogic.entities.Seat seat : seats) {
+
+                    List<Seat> seats = seatDAO.findByFlightId(flightId);
+                    for (Seat seat : seats) {
                         seatDAO.delete(seat.getSeatId());
                     }
-                    
-                    // Step 4: Delete the flight itself
+
                     flightDAO.delete(flightId);
                 }
             }
-            
-            // Step 5: Delete the airline itself
+
             boolean success = airlineDAO.delete(airlineId);
-            
             if (success) {
                 TransactionManager.commit(conn);
             } else {
                 TransactionManager.rollback(conn);
             }
-            
+
             return success;
         } catch (SQLException e) {
             TransactionManager.rollback(conn);
             throw e;
         }
     }
-    
+
     /**
      * Get all airlines.
-     * @return List of all airlines
      */
     public List<Airline> getAllAirlines() throws SQLException {
         return airlineDAO.findAll();
     }
-    
-    // ========== Airport Management ==========
-    
-    /**
-     * Add a new airport.
-     * @param airport Airport to add
-     * @return Created airport
-     */
+
+    // ============================================================
+    // Airport Management
+    // ============================================================
+
     public Airport addAirport(Airport airport) throws SQLException {
         if (airport == null) {
             throw new IllegalArgumentException("Airport is required");
         }
-        
         if (airport.getAirportCode() == null || airport.getAirportCode().isEmpty()) {
             throw new IllegalArgumentException("Airport code is required");
         }
-        
         return airportDAO.save(airport);
     }
-    
-    /**
-     * Update airport details.
-     * @param airport Airport to update
-     * @return true if update successful
-     */
+
     public boolean updateAirport(Airport airport) throws SQLException {
         if (airport == null || airport.getAirportCode() == null) {
             throw new IllegalArgumentException("Valid airport is required");
         }
-        
         return airportDAO.update(airport);
     }
-    
+
     /**
-     * Remove an airport.
-     * This method handles cascading deletes for all related entities:
-     * 1. Finds all routes using this airport (as origin or destination)
-     * 2. For each route, finds all flights using that route
-     * 3. For each flight, deletes tickets, reservations, seats, and the flight itself
-     * 4. Deletes all routes using this airport
-     * 5. Deletes the airport
-     * 
-     * @param airportCode Airport code
-     * @return true if removal successful
+     * Remove an airport with cascading deletes:
+     * routes using this airport, then flights on those routes, and their dependencies.
      */
     public boolean removeAirport(String airportCode) throws SQLException {
-        // Get all routes using this airport (as origin or destination)
         List<Route> routes = routeDAO.findByAirportCode(airportCode);
-        
+
         if (routes.isEmpty()) {
-            // No routes use this airport, safe to delete directly
             return airportDAO.delete(airportCode);
         }
-        
-        // Use transaction to ensure atomicity
-        Connection conn = datalayer.database.DatabaseConnection.getInstance().getConnection();
+
+        Connection conn = DatabaseConnection.getInstance().getConnection();
         TransactionManager.begin(conn);
-        
+
         try {
-            // For each route using this airport
             for (Route route : routes) {
-                // Get all flights using this route
                 List<Flight> flights = flightDAO.findByRouteId(route.getRouteId());
-                
-                // For each flight, delete all dependencies
+
                 for (Flight flight : flights) {
-                    // Get flight_id from database
                     Integer flightId = null;
                     try (PreparedStatement stmt = conn.prepareStatement(
                             "SELECT flight_id FROM flights WHERE flight_number = ?")) {
@@ -643,148 +583,109 @@ public class AdminService {
                             }
                         }
                     }
-                    
+
                     if (flightId != null) {
-                        // Step 1: Delete all tickets for reservations of this flight
-                        java.util.List<businesslogic.entities.Reservation> reservations = 
-                            reservationDAO.findByFlightId(flightId);
-                        for (businesslogic.entities.Reservation reservation : reservations) {
-                            // Delete tickets for this reservation
+                        List<Reservation> reservations = reservationDAO.findByFlightId(flightId);
+                        for (Reservation reservation : reservations) {
                             try (PreparedStatement deleteTicketsStmt = conn.prepareStatement(
                                     "DELETE FROM tickets WHERE reservation_id = ?")) {
                                 deleteTicketsStmt.setInt(1, reservation.getReservationId());
                                 deleteTicketsStmt.executeUpdate();
                             }
                         }
-                        
-                        // Step 2: Delete all reservations for this flight
-                        for (businesslogic.entities.Reservation reservation : reservations) {
+
+                        for (Reservation reservation : reservations) {
                             reservationDAO.delete(reservation.getReservationId());
                         }
-                        
-                        // Step 3: Delete all seats for this flight
-                        java.util.List<businesslogic.entities.Seat> seats = seatDAO.findByFlightId(flightId);
-                        for (businesslogic.entities.Seat seat : seats) {
+
+                        List<Seat> seats = seatDAO.findByFlightId(flightId);
+                        for (Seat seat : seats) {
                             seatDAO.delete(seat.getSeatId());
                         }
-                        
-                        // Step 4: Delete the flight itself
+
                         flightDAO.delete(flightId);
                     }
                 }
-                
-                // Step 5: Delete the route
+
                 routeDAO.delete(route.getRouteId());
             }
-            
-            // Step 6: Delete the airport itself
+
             boolean success = airportDAO.delete(airportCode);
-            
             if (success) {
                 TransactionManager.commit(conn);
             } else {
                 TransactionManager.rollback(conn);
             }
-            
+
             return success;
         } catch (SQLException e) {
             TransactionManager.rollback(conn);
             throw e;
         }
     }
-    
-    /**
-     * Get all airports.
-     * @return List of all airports
-     */
+
     public List<Airport> getAllAirports() throws SQLException {
         return airportDAO.findAll();
     }
-    
-    // ========== Route Management ==========
-    
-    /**
-     * Add a new route.
-     * @param route Route to add
-     * @return Created route
-     */
+
+    // ============================================================
+    // Route Management
+    // ============================================================
+
     public Route addRoute(Route route) throws SQLException {
         if (route == null) {
             throw new IllegalArgumentException("Route is required");
         }
-        
         if (route.getOrigin() == null || route.getDestination() == null) {
             throw new IllegalArgumentException("Route origin and destination are required");
         }
-        
-        // Validate origin != destination
         if (route.getOrigin().getAirportCode().equals(route.getDestination().getAirportCode())) {
             throw new IllegalArgumentException("Origin and destination airports must be different");
         }
-        
-        // Check if route already exists
+
+        // Prevent duplicate routes
         List<Route> allRoutes = routeDAO.findAll();
         for (Route existingRoute : allRoutes) {
             if (existingRoute.getOrigin() != null && existingRoute.getDestination() != null &&
                 existingRoute.getOrigin().getAirportCode().equals(route.getOrigin().getAirportCode()) &&
                 existingRoute.getDestination().getAirportCode().equals(route.getDestination().getAirportCode())) {
-                throw new IllegalStateException("Route already exists: " + 
-                    route.getOrigin().getAirportCode() + " → " + route.getDestination().getAirportCode());
+                throw new IllegalStateException("Route already exists: " +
+                        route.getOrigin().getAirportCode() + " → " +
+                        route.getDestination().getAirportCode());
             }
         }
-        
+
         return routeDAO.save(route);
     }
-    
-    /**
-     * Update route details.
-     * @param route Route to update
-     * @return true if update successful
-     */
+
     public boolean updateRoute(Route route) throws SQLException {
         if (route == null || route.getRouteId() <= 0) {
             throw new IllegalArgumentException("Valid route is required");
         }
-        
         if (route.getOrigin() == null || route.getDestination() == null) {
             throw new IllegalArgumentException("Route origin and destination are required");
         }
-        
-        // Validate origin != destination
         if (route.getOrigin().getAirportCode().equals(route.getDestination().getAirportCode())) {
             throw new IllegalArgumentException("Origin and destination airports must be different");
         }
-        
         return routeDAO.update(route);
     }
-    
+
     /**
-     * Remove a route.
-     * This method handles cascading deletes for all related entities:
-     * 1. Finds all flights using this route
-     * 2. For each flight, deletes tickets, reservations, seats, and the flight itself
-     * 3. Deletes the route
-     * 
-     * @param routeId Route ID
-     * @return true if removal successful
+     * Remove a route with cascading deletes of flights and their dependencies.
      */
     public boolean removeRoute(int routeId) throws SQLException {
-        // Get all flights using this route
         List<Flight> flights = flightDAO.findByRouteId(routeId);
-        
+
         if (flights.isEmpty()) {
-            // No flights use this route, safe to delete directly
             return routeDAO.delete(routeId);
         }
-        
-        // Use transaction to ensure atomicity
-        Connection conn = datalayer.database.DatabaseConnection.getInstance().getConnection();
+
+        Connection conn = DatabaseConnection.getInstance().getConnection();
         TransactionManager.begin(conn);
-        
+
         try {
-            // Delete all flights that use this route (with all their dependencies)
             for (Flight flight : flights) {
-                // Get flight_id from database
                 Integer flightId = null;
                 try (PreparedStatement stmt = conn.prepareStatement(
                         "SELECT flight_id FROM flights WHERE flight_number = ?")) {
@@ -795,66 +696,81 @@ public class AdminService {
                         }
                     }
                 }
-                
+
                 if (flightId != null) {
-                    // Step 1: Delete all tickets for reservations of this flight
-                    java.util.List<businesslogic.entities.Reservation> reservations = 
-                        reservationDAO.findByFlightId(flightId);
-                    for (businesslogic.entities.Reservation reservation : reservations) {
-                        // Delete tickets for this reservation
+                    List<Reservation> reservations = reservationDAO.findByFlightId(flightId);
+                    for (Reservation reservation : reservations) {
                         try (PreparedStatement deleteTicketsStmt = conn.prepareStatement(
                                 "DELETE FROM tickets WHERE reservation_id = ?")) {
                             deleteTicketsStmt.setInt(1, reservation.getReservationId());
                             deleteTicketsStmt.executeUpdate();
                         }
                     }
-                    
-                    // Step 2: Delete all reservations for this flight
-                    for (businesslogic.entities.Reservation reservation : reservations) {
+
+                    for (Reservation reservation : reservations) {
                         reservationDAO.delete(reservation.getReservationId());
                     }
-                    
-                    // Step 3: Delete all seats for this flight
-                    java.util.List<businesslogic.entities.Seat> seats = seatDAO.findByFlightId(flightId);
-                    for (businesslogic.entities.Seat seat : seats) {
+
+                    List<Seat> seats = seatDAO.findByFlightId(flightId);
+                    for (Seat seat : seats) {
                         seatDAO.delete(seat.getSeatId());
                     }
-                    
-                    // Step 4: Delete the flight itself
+
                     flightDAO.delete(flightId);
                 }
             }
-            
-            // Step 5: Delete the route itself
+
             boolean success = routeDAO.delete(routeId);
-            
             if (success) {
                 TransactionManager.commit(conn);
             } else {
                 TransactionManager.rollback(conn);
             }
-            
+
             return success;
         } catch (SQLException e) {
             TransactionManager.rollback(conn);
             throw e;
         }
     }
-    
-    /**
-     * Get all routes.
-     * @return List of all routes
-     */
+
     public List<Route> getAllRoutes() throws SQLException {
         return routeDAO.findAll();
     }
-    
-    // ========== Admin User Management ==========
-    
+
+    // ============================================================
+    // User / Admin Management
+    // ============================================================
+
+    public List<User> getAllUsers() throws SQLException {
+        return userDAO.findAll();
+    }
+
+    public List<Customer> getAllCustomers() throws SQLException {
+        return userDAO.findAllCustomers();
+    }
+
+    public List<FlightAgent> getAllFlightAgents() throws SQLException {
+        return userDAO.findAllFlightAgents();
+    }
+
+    public List<SystemAdmin> getAllSystemAdmins() throws SQLException {
+        return userDAO.findAllSystemAdmins();
+    }
+
+    /**
+     * Alias from second file: same as getAllSystemAdmins().
+     */
+    public List<SystemAdmin> getAllAdmins() throws SQLException {
+        return getAllSystemAdmins();
+    }
+
+    public boolean deleteUser(int userId) throws SQLException {
+        return userDAO.delete(userId);
+    }
+
     /**
      * Verify if a user is a system admin.
-     * @param userId User ID
-     * @return SystemAdmin if user is admin, null otherwise
      */
     public SystemAdmin getAdminById(int userId) throws SQLException {
         User user = userDAO.findById(userId);
@@ -863,38 +779,53 @@ public class AdminService {
         }
         return null;
     }
-    
-    /**
-     * Get all system admins.
-     * @return List of all system admins
-     */
-    public List<SystemAdmin> getAllAdmins() throws SQLException {
-        return userDAO.findAllSystemAdmins();
-    }
-    
-    // ========== Reports & Analytics ==========
-    
-    /**
-     * Get all reservations for reporting.
-     * @return List of all reservations
-     */
-    public List<businesslogic.entities.Reservation> getAllReservations() throws SQLException {
+
+    // ============================================================
+    // Reservation & Payment Management / Reporting
+    // ============================================================
+
+    public List<Reservation> getAllReservations() throws SQLException {
         return reservationDAO.findAll();
     }
-    
-    /**
-     * Get all payments for reporting.
-     * @return List of all payments
-     */
-    public List<businesslogic.entities.Payment> getAllPayments() throws SQLException {
+
+    public List<Reservation> getReservationsByCustomer(int customerId) throws SQLException {
+        return reservationDAO.findByCustomerId(customerId);
+    }
+
+    public List<Reservation> getReservationsByFlight(int flightId) throws SQLException {
+        return reservationDAO.findByFlightId(flightId);
+    }
+
+    public List<Payment> getAllPayments() throws SQLException {
+        if (paymentDAO == null) {
+            throw new IllegalStateException("PaymentDAO is not configured for this AdminService");
+        }
         return paymentDAO.findAll();
     }
-    
+
+    // ============================================================
+    // Helper methods
+    // ============================================================
+
     /**
-     * Get all customers for reporting.
-     * @return List of all customers
+     * Helper to get flight_id by flight number.
+     * (Not heavily used here, but preserved from original version.)
      */
-    public List<businesslogic.entities.Customer> getAllCustomers() throws SQLException {
-        return userDAO.findAllCustomers();
+    private Integer getFlightIdByNumber(String flightNumber) throws SQLException {
+        if (flightNumber == null || flightNumber.isEmpty()) {
+            return null;
+        }
+
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        try (PreparedStatement stmt = conn.prepareStatement(
+                "SELECT flight_id FROM flights WHERE flight_number = ?")) {
+            stmt.setString(1, flightNumber);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("flight_id");
+                }
+            }
+        }
+        return null;
     }
 }
