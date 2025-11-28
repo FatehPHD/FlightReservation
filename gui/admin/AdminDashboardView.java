@@ -1,7 +1,7 @@
 package gui.admin;
 
 import gui.common.ViewManager;
-import gui.customer.CustomerDashboardView;
+import gui.auth.LoginView;
 import businesslogic.entities.User;
 
 import javax.swing.*;
@@ -140,17 +140,19 @@ public class AdminDashboardView extends JPanel {
         buttonPanel.add(reportsBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
-        // Back to Main Dashboard button
-        JButton backBtn = new JButton("Back to Main Dashboard");
-        backBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        backBtn.setPreferredSize(new Dimension(250, 40));
-        backBtn.setMaximumSize(new Dimension(250, 40));
-        backBtn.setFont(new Font("Arial", Font.PLAIN, 16));
-        backBtn.addActionListener(e -> {
-            viewManager.showView("CUSTOMER_DASHBOARD", 
-                new CustomerDashboardView(viewManager));
+        // Logout button
+        JButton logoutBtn = new JButton("Logout");
+        logoutBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        logoutBtn.setPreferredSize(new Dimension(250, 40));
+        logoutBtn.setMaximumSize(new Dimension(250, 40));
+        logoutBtn.setFont(new Font("Arial", Font.PLAIN, 16));
+        logoutBtn.addActionListener(e -> {
+            // Clear session data
+            viewManager.logout();
+            // Navigate to login
+            viewManager.showView("LOGIN", new LoginView(viewManager));
         });
-        buttonPanel.add(backBtn);
+        buttonPanel.add(logoutBtn);
         
         // Add button panel to main layout
         gbc.gridy = 3;

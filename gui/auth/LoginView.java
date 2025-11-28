@@ -2,7 +2,10 @@ package gui.auth;
 
 import gui.common.ViewManager;
 import gui.customer.CustomerDashboardView;
+import gui.admin.AdminDashboardView;
+import gui.agent.AgentDashboardView;
 import businesslogic.entities.User;
+import businesslogic.entities.enums.UserRole;
 import datalayer.dao.UserDAO;
 import datalayer.impl.UserDAOImpl;
 
@@ -76,9 +79,19 @@ public class LoginView extends JPanel {
                     // Store logged-in user in ViewManager (works for all user types)
                     viewManager.setCurrentUser(user);
                     
-                    // Navigate to common dashboard (CustomerDashboardView) for all users
-                    viewManager.showView("CUSTOMER_DASHBOARD", 
-                        new CustomerDashboardView(viewManager));
+                    // Navigate to role-specific dashboard based on user role
+                    UserRole role = user.getRole();
+                    if (role == UserRole.SYSTEM_ADMIN) {
+                        viewManager.showView("ADMIN_DASHBOARD", 
+                            new AdminDashboardView(viewManager));
+                    } else if (role == UserRole.FLIGHT_AGENT) {
+                        viewManager.showView("AGENT_DASHBOARD", 
+                            new AgentDashboardView(viewManager));
+                    } else {
+                        // Customer or default
+                        viewManager.showView("CUSTOMER_DASHBOARD", 
+                            new CustomerDashboardView(viewManager));
+                    }
                 } else {
                     JOptionPane.showMessageDialog(this,
                         "Invalid username or password.",
