@@ -22,4 +22,20 @@ public interface FlightDAO extends BaseDAO<Flight, Integer> {
      * @throws SQLException if database error occurs
      */
     List<Flight> findByAircraftId(Integer aircraftId) throws SQLException;
+    
+    /**
+     * Find all flights for a specific airline.
+     * @param airlineId Airline ID
+     * @return List of flights using this airline
+     * @throws SQLException if database error occurs
+     */
+    List<Flight> findByAirlineId(Integer airlineId) throws SQLException;
+    
+    /**
+     * Find all flights for a specific route.
+     * @param routeId Route ID
+     * @return List of flights using this route
+     * @throws SQLException if database error occurs
+     */
+    List<Flight> findByRouteId(Integer routeId) throws SQLException;
 }

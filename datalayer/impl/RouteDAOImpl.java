@@ -24,6 +24,10 @@ public class RouteDAOImpl implements RouteDAO {
             "SELECT route_id, origin_code, destination_code, distance_km, estimated_duration_minutes " +
             "FROM routes";
 
+    private static final String SELECT_BY_AIRPORT_CODE_SQL =
+            "SELECT route_id, origin_code, destination_code, distance_km, estimated_duration_minutes " +
+            "FROM routes WHERE origin_code = ? OR destination_code = ?";
+
     private static final String UPDATE_SQL =
             "UPDATE routes SET origin_code = ?, destination_code = ?, distance_km = ?, " +
             "estimated_duration_minutes = ? WHERE route_id = ?";
@@ -83,6 +87,23 @@ public class RouteDAOImpl implements RouteDAO {
 
             while (rs.next()) {
                 routes.add(mapRowToRoute(rs));
+            }
+        }
+        return routes;
+    }
+
+    @Override
+    public List<Route> findByAirportCode(String airportCode) throws SQLException {
+        List<Route> routes = new ArrayList<>();
+
+        try (PreparedStatement ps = connection.prepareStatement(SELECT_BY_AIRPORT_CODE_SQL)) {
+            ps.setString(1, airportCode);
+            ps.setString(2, airportCode);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    routes.add(mapRowToRoute(rs));
+                }
             }
         }
         return routes;

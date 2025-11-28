@@ -32,6 +32,12 @@ public class FlightDAOImpl implements FlightDAO {
     private static final String SELECT_BY_AIRCRAFT_ID_SQL =
             "SELECT * FROM flights WHERE aircraft_id = ?";
 
+    private static final String SELECT_BY_AIRLINE_ID_SQL =
+            "SELECT * FROM flights WHERE airline_id = ?";
+
+    private static final String SELECT_BY_ROUTE_ID_SQL =
+            "SELECT * FROM flights WHERE route_id = ?";
+
     private static final String SELECT_ALL_SQL =
             "SELECT * FROM flights";
 
@@ -168,6 +174,42 @@ public class FlightDAOImpl implements FlightDAO {
 
         try (PreparedStatement stmt = conn.prepareStatement(SELECT_BY_AIRCRAFT_ID_SQL)) {
             stmt.setInt(1, aircraftId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+        }
+
+        return list;
+    }
+
+    @Override
+    public List<Flight> findByAirlineId(Integer airlineId) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        List<Flight> list = new ArrayList<>();
+
+        try (PreparedStatement stmt = conn.prepareStatement(SELECT_BY_AIRLINE_ID_SQL)) {
+            stmt.setInt(1, airlineId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+        }
+
+        return list;
+    }
+
+    @Override
+    public List<Flight> findByRouteId(Integer routeId) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        List<Flight> list = new ArrayList<>();
+
+        try (PreparedStatement stmt = conn.prepareStatement(SELECT_BY_ROUTE_ID_SQL)) {
+            stmt.setInt(1, routeId);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
