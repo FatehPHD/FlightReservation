@@ -2,6 +2,7 @@ package gui.admin;
 
 import gui.common.ViewManager;
 import gui.auth.LoginView;
+import gui.customer.CustomerDashboardView;
 import businesslogic.entities.User;
 
 import javax.swing.*;
@@ -138,6 +139,19 @@ public class AdminDashboardView extends JPanel {
                 new ReportsView(viewManager));
         });
         buttonPanel.add(reportsBtn);
+        buttonPanel.add(Box.createVerticalStrut(15));
+        
+        // Back to Main Dashboard button
+        JButton backToMainBtn = new JButton("Back to Main Dashboard");
+        backToMainBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        backToMainBtn.setPreferredSize(new Dimension(250, 40));
+        backToMainBtn.setMaximumSize(new Dimension(250, 40));
+        backToMainBtn.setFont(new Font("Arial", Font.PLAIN, 16));
+        backToMainBtn.addActionListener(e -> {
+            viewManager.showView("CUSTOMER_DASHBOARD", 
+                new CustomerDashboardView(viewManager));
+        });
+        buttonPanel.add(backToMainBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
         // Logout button

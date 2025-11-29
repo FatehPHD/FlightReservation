@@ -2,9 +2,12 @@ package gui.customer;
 
 import gui.common.ViewManager;
 import gui.auth.LoginView;
+import gui.admin.AdminDashboardView;
+import gui.agent.AgentDashboardView;
 import businesslogic.entities.Customer;
 import businesslogic.entities.User;
 import businesslogic.entities.enums.MembershipStatus;
+import businesslogic.entities.enums.UserRole;
 
 import javax.swing.*;
 import java.awt.*;
@@ -36,7 +39,7 @@ public class CustomerDashboardView extends JPanel {
         gbc.gridy = 0;
         add(title, gbc);
         
-        // Welcome message for customers
+        // Welcome message - adapts based on user type
         User currentUser = viewManager.getCurrentUser();
         String welcomeMessage = "Welcome!";
         if (currentUser instanceof Customer) {
@@ -50,6 +53,9 @@ public class CustomerDashboardView extends JPanel {
                     welcomeMessage = "Welcome, " + firstName + "!";
                 }
             }
+        } else if (currentUser != null && currentUser.getUsername() != null) {
+            // For Admin and Agent, show username
+            welcomeMessage = "Welcome, " + currentUser.getUsername() + "!";
         }
         
         JLabel welcomeLabel = new JLabel(welcomeMessage);
@@ -63,7 +69,40 @@ public class CustomerDashboardView extends JPanel {
         buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
         buttonPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
         
-        // Search Flights button
+        // Role-specific buttons (shown based on user role)
+        UserRole userRole = currentUser != null ? currentUser.getRole() : null;
+        
+        // Admin Dashboard button (for SystemAdmins)
+        if (userRole == UserRole.SYSTEM_ADMIN) {
+            JButton adminDashboardBtn = new JButton("Admin Dashboard");
+            adminDashboardBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+            adminDashboardBtn.setPreferredSize(new Dimension(250, 40));
+            adminDashboardBtn.setMaximumSize(new Dimension(250, 40));
+            adminDashboardBtn.setFont(new Font("Arial", Font.PLAIN, 16));
+            adminDashboardBtn.addActionListener(e -> {
+                viewManager.showView("ADMIN_DASHBOARD", 
+                    new AdminDashboardView(viewManager));
+            });
+            buttonPanel.add(adminDashboardBtn);
+            buttonPanel.add(Box.createVerticalStrut(15));
+        }
+        
+        // Agent Dashboard button (for FlightAgents)
+        if (userRole == UserRole.FLIGHT_AGENT) {
+            JButton agentDashboardBtn = new JButton("Agent Dashboard");
+            agentDashboardBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+            agentDashboardBtn.setPreferredSize(new Dimension(250, 40));
+            agentDashboardBtn.setMaximumSize(new Dimension(250, 40));
+            agentDashboardBtn.setFont(new Font("Arial", Font.PLAIN, 16));
+            agentDashboardBtn.addActionListener(e -> {
+                viewManager.showView("AGENT_DASHBOARD", 
+                    new AgentDashboardView(viewManager));
+            });
+            buttonPanel.add(agentDashboardBtn);
+            buttonPanel.add(Box.createVerticalStrut(15));
+        }
+        
+        // Search Flights button (available to all users)
         JButton searchFlightsBtn = new JButton("Search Flights");
         searchFlightsBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         searchFlightsBtn.setPreferredSize(new Dimension(250, 40));

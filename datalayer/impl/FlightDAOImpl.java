@@ -10,13 +10,18 @@ import datalayer.dao.RouteDAO;
 import datalayer.dao.SeatDAO;
 import datalayer.database.DatabaseConnection;
 import datalayer.database.TransactionManager;
-import datalayer.impl.SeatDAOImpl;
 
 import java.sql.*;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
+import java.util.TimeZone;
 
 public class FlightDAOImpl implements FlightDAO {
+    
+    // UTC Calendar for consistent timezone handling with MySQL (serverTimezone=UTC)
+    private static final Calendar UTC_CALENDAR = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
 
     private static final String INSERT_SQL =
             "INSERT INTO flights (flight_number, departure_time, arrival_time, status, " +
@@ -87,8 +92,12 @@ public class FlightDAOImpl implements FlightDAO {
                     INSERT_SQL, Statement.RETURN_GENERATED_KEYS
             )) {
                 stmt.setString(1, flight.getFlightNumber());
-                stmt.setTimestamp(2, Timestamp.valueOf(flight.getDepartureTime()));
-                stmt.setTimestamp(3, Timestamp.valueOf(flight.getArrivalTime()));
+                // Convert LocalDateTime to Timestamp treating it as UTC (no timezone conversion)
+                // This ensures the exact time entered is stored in the database
+                Timestamp depTs = Timestamp.from(flight.getDepartureTime().atZone(ZoneId.of("UTC")).toInstant());
+                Timestamp arrTs = Timestamp.from(flight.getArrivalTime().atZone(ZoneId.of("UTC")).toInstant());
+                stmt.setTimestamp(2, depTs, UTC_CALENDAR);
+                stmt.setTimestamp(3, arrTs, UTC_CALENDAR);
                 stmt.setString(4, flight.getStatus().name());
                 stmt.setInt(5, flight.getAvailableSeats());
                 stmt.setDouble(6, flight.getPrice());
@@ -112,10 +121,13 @@ public class FlightDAOImpl implements FlightDAO {
             }
         
             // Automatically create seats for the new flight
-            // Use aircraft's totalSeats instead of flight.getAvailableSeats()
-            // because the aircraft determines the actual number of seats
+            // Use aircraft's totalSeats and seatConfiguration
+            // because the aircraft determines the actual number of seats and layout
+            // Mark only the specified available seats as available
             SeatDAO seatDAO = new SeatDAOImpl();
-            seatDAO.createSeatsForFlight(generatedFlightId, totalSeats);
+            String seatConfig = aircraft.getSeatConfiguration();
+            int availableSeats = flight.getAvailableSeats();
+            seatDAO.createSeatsForFlight(generatedFlightId, totalSeats, seatConfig, availableSeats);
             
             // Commit transaction if everything succeeded
             TransactionManager.commit(conn);
@@ -262,10 +274,19 @@ public class FlightDAOImpl implements FlightDAO {
             }
         }
 
+        // Check if available seats changed
+        int newAvailableSeats = flight.getAvailableSeats();
+        int oldAvailableSeats = existing.getAvailableSeats();
+        boolean availableSeatsChanged = (newAvailableSeats != oldAvailableSeats);
+        
         try (PreparedStatement stmt = conn.prepareStatement(UPDATE_SQL)) {
             stmt.setString(1, flight.getFlightNumber());
-            stmt.setTimestamp(2, Timestamp.valueOf(flight.getDepartureTime()));
-            stmt.setTimestamp(3, Timestamp.valueOf(flight.getArrivalTime()));
+            // Convert LocalDateTime to Timestamp treating it as UTC (no timezone conversion)
+            // This ensures the exact time entered is stored in the database
+            Timestamp depTs = Timestamp.from(flight.getDepartureTime().atZone(ZoneId.of("UTC")).toInstant());
+            Timestamp arrTs = Timestamp.from(flight.getArrivalTime().atZone(ZoneId.of("UTC")).toInstant());
+            stmt.setTimestamp(2, depTs, UTC_CALENDAR);
+            stmt.setTimestamp(3, arrTs, UTC_CALENDAR);
             stmt.setString(4, flight.getStatus().name());
             stmt.setInt(5, flight.getAvailableSeats());
             stmt.setDouble(6, flight.getPrice());
@@ -275,6 +296,13 @@ public class FlightDAOImpl implements FlightDAO {
             stmt.setInt(10, flightId);
 
             int affected = stmt.executeUpdate();
+            
+            // If available seats changed, update seat availability
+            if (affected > 0 && availableSeatsChanged) {
+                SeatDAO seatDAO = new SeatDAOImpl();
+                seatDAO.updateSeatAvailability(flightId, newAvailableSeats);
+            }
+            
             return affected > 0;
         }
     }
@@ -346,14 +374,17 @@ public class FlightDAOImpl implements FlightDAO {
 
         flight.setFlightNumber(rs.getString("flight_number"));
         
-        Timestamp depTs = rs.getTimestamp("departure_time");
+        // Use UTC calendar when reading to match how we write (treat as UTC, no conversion)
+        Timestamp depTs = rs.getTimestamp("departure_time", UTC_CALENDAR);
         if (depTs != null) {
-            flight.setDepartureTime(depTs.toLocalDateTime());
+            // Convert from UTC timestamp back to LocalDateTime (treating as UTC)
+            flight.setDepartureTime(depTs.toInstant().atZone(ZoneId.of("UTC")).toLocalDateTime());
         }
         
-        Timestamp arrTs = rs.getTimestamp("arrival_time");
+        Timestamp arrTs = rs.getTimestamp("arrival_time", UTC_CALENDAR);
         if (arrTs != null) {
-            flight.setArrivalTime(arrTs.toLocalDateTime());
+            // Convert from UTC timestamp back to LocalDateTime (treating as UTC)
+            flight.setArrivalTime(arrTs.toInstant().atZone(ZoneId.of("UTC")).toLocalDateTime());
         }
         
         String statusStr = rs.getString("status");

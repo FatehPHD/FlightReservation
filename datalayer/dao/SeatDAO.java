@@ -36,8 +36,19 @@ public interface SeatDAO extends BaseDAO<Seat, Integer> {
     /**
      * Create seats for a specific flight.
      * @param flightId Flight ID
-     * @param totalSeats Total seats to create
+     * @param totalSeats Total seats to create (must match aircraft's total seats)
+     * @param seatConfiguration Seat configuration (e.g., "3-3", "2-4-2")
+     * @param availableSeats Number of seats to mark as available (must be <= totalSeats)
      * @throws SQLException if database error occurs
      */
-    void createSeatsForFlight(int flightId, int totalSeats) throws SQLException;
+    void createSeatsForFlight(int flightId, int totalSeats, String seatConfiguration, int availableSeats) throws SQLException;
+    
+    /**
+     * Update seat availability for a flight based on available seats count.
+     * Marks the first N seats as available, rest as unavailable.
+     * @param flightId Flight ID
+     * @param availableSeats Number of seats to mark as available
+     * @throws SQLException if database error occurs
+     */
+    void updateSeatAvailability(int flightId, int availableSeats) throws SQLException;
 }

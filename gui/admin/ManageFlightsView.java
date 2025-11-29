@@ -394,7 +394,7 @@ public class ManageFlightsView extends JPanel {
         
         private JTextField flightNumberField;
         private JTextField departureTimeField;
-        private JTextField arrivalTimeField;
+        private JLabel arrivalTimeLabel; // Read-only label showing calculated arrival time
         private JComboBox<FlightStatus> statusComboBox;
         private JTextField availableSeatsField;
         private JTextField priceField;
@@ -451,21 +451,23 @@ public class ManageFlightsView extends JPanel {
             }
             formPanel.add(departureTimeField, gbc);
             
-            // Arrival Time
+            // Arrival Time (calculated, read-only)
             gbc.gridx = 0;
             gbc.gridy++;
             gbc.fill = GridBagConstraints.NONE;
             gbc.ipadx = 0;
-            formPanel.add(new JLabel("Arrival Time (YYYY-MM-DD HH:MM):"), gbc);
+            formPanel.add(new JLabel("Arrival Time (Calculated):"), gbc);
             gbc.gridx = 1;
             gbc.fill = GridBagConstraints.HORIZONTAL;
             gbc.ipadx = 200;
-            arrivalTimeField = new JTextField(20);
+            arrivalTimeLabel = new JLabel("Select route to calculate");
+            arrivalTimeLabel.setForeground(Color.GRAY);
             if (flight != null && flight.getArrivalTime() != null) {
-                arrivalTimeField.setText(flight.getArrivalTime().format(
+                arrivalTimeLabel.setText(flight.getArrivalTime().format(
                     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+                arrivalTimeLabel.setForeground(Color.BLACK);
             }
-            formPanel.add(arrivalTimeField, gbc);
+            formPanel.add(arrivalTimeLabel, gbc);
             
             // Status
             gbc.gridx = 0;
@@ -567,6 +569,14 @@ public class ManageFlightsView extends JPanel {
             }
             formPanel.add(routeComboBox, gbc);
             
+            // Add listeners to departure time and route to calculate arrival time (after routeComboBox is created)
+            departureTimeField.addKeyListener(new java.awt.event.KeyAdapter() {
+                public void keyReleased(java.awt.event.KeyEvent evt) {
+                    calculateArrivalTime();
+                }
+            });
+            routeComboBox.addActionListener(e -> calculateArrivalTime());
+            
             add(formPanel, BorderLayout.CENTER);
             
             // Button panel
@@ -613,26 +623,13 @@ public class ManageFlightsView extends JPanel {
                 return false;
             }
             
-            if (arrivalTimeField.getText().trim().isEmpty()) {
-                ErrorDialog.show(this, "Arrival time is required.");
-                return false;
-            }
-            
-            // Parse dates
+            // Parse departure date
             LocalDateTime departureTime;
-            LocalDateTime arrivalTime;
             try {
                 departureTime = LocalDateTime.parse(departureTimeField.getText().trim(),
                     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-                arrivalTime = LocalDateTime.parse(arrivalTimeField.getText().trim(),
-                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
             } catch (DateTimeParseException e) {
                 ErrorDialog.show(this, "Invalid date format. Use YYYY-MM-DD HH:MM (e.g., 2024-12-25 14:30)");
-                return false;
-            }
-            
-            if (arrivalTime.isBefore(departureTime)) {
-                ErrorDialog.show(this, "Arrival time must be after departure time.");
                 return false;
             }
             
@@ -686,6 +683,16 @@ public class ManageFlightsView extends JPanel {
                 return false;
             }
             
+            // Validate available seats doesn't exceed aircraft's total seats
+            int aircraftTotalSeats = selectedAircraft.getTotalSeats();
+            if (availableSeats > aircraftTotalSeats) {
+                ErrorDialog.show(this, 
+                    "Available seats (" + availableSeats + ") cannot exceed the aircraft's total seats (" + 
+                    aircraftTotalSeats + ").\n" +
+                    "Aircraft: " + selectedAircraft.getModel() + " has " + aircraftTotalSeats + " total seats.");
+                return false;
+            }
+            
             // Get selected route
             if (routeComboBox.getSelectedItem() == null || routesList == null || routesList.isEmpty()) {
                 ErrorDialog.show(this, "Please select a route. If none are available, add routes first using 'Manage Routes'.");
@@ -710,6 +717,9 @@ public class ManageFlightsView extends JPanel {
                 return false;
             }
             
+            // Calculate arrival time from departure time + route's estimated duration
+            LocalDateTime arrivalTime = departureTime.plusMinutes(selectedRoute.getEstimatedDuration());
+            
             // Create or update flight
             if (flight == null) {
                 // New flight
@@ -718,7 +728,7 @@ public class ManageFlightsView extends JPanel {
             
             flight.setFlightNumber(flightNumber);
             flight.setDepartureTime(departureTime);
-            flight.setArrivalTime(arrivalTime);
+            flight.setArrivalTime(arrivalTime); // Automatically calculated
             flight.setStatus((FlightStatus) statusComboBox.getSelectedItem());
             flight.setAvailableSeats(availableSeats);
             flight.setPrice(price);
@@ -726,6 +736,64 @@ public class ManageFlightsView extends JPanel {
             flight.setRoute(selectedRoute);
             
             return true;
+        }
+        
+        /**
+         * Calculate and display arrival time based on departure time and selected route.
+         */
+        private void calculateArrivalTime() {
+            try {
+                String depTimeStr = departureTimeField.getText().trim();
+                if (depTimeStr.isEmpty()) {
+                    arrivalTimeLabel.setText("Enter departure time");
+                    arrivalTimeLabel.setForeground(Color.GRAY);
+                    return;
+                }
+                
+                LocalDateTime departureTime = LocalDateTime.parse(depTimeStr,
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                
+                // Get selected route
+                if (routeComboBox.getSelectedItem() == null || routesList == null || routesList.isEmpty()) {
+                    arrivalTimeLabel.setText("Select route to calculate");
+                    arrivalTimeLabel.setForeground(Color.GRAY);
+                    return;
+                }
+                
+                String routeStr = (String) routeComboBox.getSelectedItem();
+                int routeId;
+                try {
+                    routeId = Integer.parseInt(routeStr.substring(routeStr.indexOf("ID: ") + 4,
+                        routeStr.indexOf(")")));
+                } catch (Exception e) {
+                    arrivalTimeLabel.setText("Invalid route");
+                    arrivalTimeLabel.setForeground(Color.GRAY);
+                    return;
+                }
+                
+                Route selectedRoute = routesList.stream()
+                    .filter(r -> r.getRouteId() == routeId)
+                    .findFirst()
+                    .orElse(null);
+                
+                if (selectedRoute == null) {
+                    arrivalTimeLabel.setText("Route not found");
+                    arrivalTimeLabel.setForeground(Color.GRAY);
+                    return;
+                }
+                
+                // Calculate arrival time
+                LocalDateTime arrivalTime = departureTime.plusMinutes(selectedRoute.getEstimatedDuration());
+                arrivalTimeLabel.setText(arrivalTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+                arrivalTimeLabel.setForeground(Color.BLACK);
+                
+            } catch (DateTimeParseException e) {
+                arrivalTimeLabel.setText("Invalid departure time format");
+                arrivalTimeLabel.setForeground(Color.RED);
+            } catch (Exception e) {
+                arrivalTimeLabel.setText("Error calculating");
+                arrivalTimeLabel.setForeground(Color.RED);
+            }
         }
         
         public boolean isConfirmed() {

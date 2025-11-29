@@ -2,6 +2,7 @@ package datalayer.impl;
 
 import businesslogic.entities.Reservation;
 import businesslogic.entities.Customer;
+import businesslogic.entities.User;
 import businesslogic.entities.Flight;
 import businesslogic.entities.Payment;
 import businesslogic.entities.Seat;
@@ -277,7 +278,25 @@ public class ReservationDAOImpl implements ReservationDAO {
         
         // Load related entities
         int customerId = rs.getInt("customer_id");
-        Customer customer = (Customer) userDAO.findById(customerId);
+        User user = userDAO.findById(customerId);
+        
+        // Convert User to Customer (handles cases where admin/agent made booking)
+        Customer customer;
+        if (user instanceof Customer) {
+            customer = (Customer) user;
+        } else if (user != null) {
+            // Convert non-Customer user to Customer for reservation purposes
+            customer = new Customer();
+            customer.setUserId(user.getUserId());
+            customer.setUsername(user.getUsername());
+            customer.setPassword(user.getPassword());
+            customer.setEmail(user.getEmail());
+            customer.setRole(user.getRole());
+            customer.setFirstName(user.getUsername()); // Default to username
+            customer.setMembershipStatus(businesslogic.entities.enums.MembershipStatus.REGULAR);
+        } else {
+            throw new SQLException("User not found for customer_id: " + customerId);
+        }
         
         int flightId = rs.getInt("flight_id");
         Flight flight = flightDAO.findById(flightId);

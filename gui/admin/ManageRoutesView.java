@@ -198,9 +198,9 @@ public class ManageRoutesView extends JPanel {
         
         if (dialog.isConfirmed()) {
             loadRoutes(); // Refresh table
-        }
     }
-    
+}
+
     /**
      * Delete the selected route.
      */

@@ -145,14 +145,14 @@ public class RouteDAOImpl implements RouteDAO {
         if (origin == null) {
             // Fallback: create minimal Airport object if not found
             origin = new Airport();
-            origin.setAirportCode(originCode);
+        origin.setAirportCode(originCode);
         }
 
         Airport destination = airportDAO.findById(destinationCode);
         if (destination == null) {
             // Fallback: create minimal Airport object if not found
             destination = new Airport();
-            destination.setAirportCode(destinationCode);
+        destination.setAirportCode(destinationCode);
         }
 
         Route route = new Route();

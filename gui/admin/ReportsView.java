@@ -41,9 +41,39 @@ public class ReportsView extends JPanel {
         
         // Title panel
         JPanel titlePanel = new JPanel();
+        titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
+        titlePanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        // Title
         JLabel title = new JLabel("System Reports & Analytics");
         title.setFont(new Font("Arial", Font.BOLD, 24));
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
         titlePanel.add(title);
+        titlePanel.add(Box.createVerticalStrut(10));
+        
+        // Buttons panel (centered)
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.X_AXIS));
+        
+        JButton refreshBtn = new JButton("Refresh Reports");
+        refreshBtn.setPreferredSize(new Dimension(150, 35));
+        refreshBtn.setFont(new Font("Arial", Font.PLAIN, 14));
+        refreshBtn.addActionListener(e -> generateReports());
+        
+        JButton backBtn = new JButton("Back");
+        backBtn.setPreferredSize(new Dimension(100, 35));
+        backBtn.setFont(new Font("Arial", Font.PLAIN, 14));
+        backBtn.addActionListener(e -> {
+            viewManager.showView("ADMIN_DASHBOARD", 
+                new AdminDashboardView(viewManager));
+        });
+        
+        buttonPanel.add(refreshBtn);
+        buttonPanel.add(Box.createHorizontalStrut(10));
+        buttonPanel.add(backBtn);
+        buttonPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        titlePanel.add(buttonPanel);
         add(titlePanel, BorderLayout.NORTH);
         
         // Report display area
@@ -57,27 +87,6 @@ public class ReportsView extends JPanel {
         scrollPane.setBorder(BorderFactory.createTitledBorder("Reports"));
         add(scrollPane, BorderLayout.CENTER);
         
-        // Button panel
-        JPanel buttonPanel = new JPanel();
-        buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        
-        JButton refreshBtn = new JButton("Refresh Reports");
-        refreshBtn.setPreferredSize(new Dimension(150, 35));
-        refreshBtn.setFont(new Font("Arial", Font.PLAIN, 14));
-        refreshBtn.addActionListener(e -> generateReports());
-        
-        JButton backBtn = new JButton("Back");
-        backBtn.setPreferredSize(new Dimension(120, 35));
-        backBtn.setFont(new Font("Arial", Font.PLAIN, 14));
-        backBtn.addActionListener(e -> {
-            viewManager.showView("ADMIN_DASHBOARD", 
-                new AdminDashboardView(viewManager));
-        });
-        
-        buttonPanel.add(refreshBtn);
-        buttonPanel.add(backBtn);
-        
-        add(buttonPanel, BorderLayout.SOUTH);
     }
     
     /**
@@ -225,8 +234,9 @@ public class ReportsView extends JPanel {
             report.append("CUSTOMER ACTIVITY\n");
             report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
             
+            // Count membership status from actual customers only (exclude converted admin/agent bookings)
             Map<MembershipStatus, Long> membershipCounts = customers.stream()
-                .filter(c -> c.getMembershipStatus() != null)
+                .filter(c -> c != null && c.getMembershipStatus() != null)
                 .collect(Collectors.groupingBy(
                     Customer::getMembershipStatus,
                     Collectors.counting()

@@ -221,20 +221,28 @@ public class SeatDAOImpl implements SeatDAO {
     }
 
     @Override
-    public void createSeatsForFlight(int flightId, int totalSeats) throws SQLException {
+    public void createSeatsForFlight(int flightId, int totalSeats, String seatConfiguration, int availableSeats) throws SQLException {
         Connection conn = DatabaseConnection.getInstance().getConnection();
+
+        // Validate availableSeats doesn't exceed totalSeats
+        if (availableSeats > totalSeats) {
+            throw new SQLException("Available seats (" + availableSeats + ") cannot exceed total seats (" + totalSeats + ")");
+        }
+
+        // Calculate seats per row from configuration (e.g., "3-3" = 6, "2-4-2" = 8)
+        int seatsPerRow = calculateSeatsPerRow(seatConfiguration);
 
         try (PreparedStatement stmt = conn.prepareStatement(
             "INSERT INTO seats (flight_id, seat_number, seat_class, is_available) VALUES (?, ?, ?, ?)"
         )) {
             for (int i = 1; i <= totalSeats; i++) {
-
-                String seatNumber = generateSeatNumber(i); // e.g., 12A
+                String seatNumber = generateSeatNumber(i, seatsPerRow);
 
                 stmt.setInt(1, flightId);
                 stmt.setString(2, seatNumber);
                 stmt.setString(3, "ECONOMY");
-                stmt.setBoolean(4, true);
+                // Mark first 'availableSeats' as available, rest as unavailable
+                stmt.setBoolean(4, i <= availableSeats);
 
                 stmt.addBatch();
             }
@@ -243,10 +251,77 @@ public class SeatDAOImpl implements SeatDAO {
         }
     }
 
-    private String generateSeatNumber(int index) {
-        int row = ((index - 1) / 6) + 1; // 6 seats per row
-        char col = (char) ('A' + ((index - 1) % 6));
+    /**
+     * Calculate seats per row from seat configuration string.
+     * Examples: "3-3" = 6, "2-4-2" = 8, "2-2" = 4
+     */
+    private int calculateSeatsPerRow(String seatConfiguration) {
+        if (seatConfiguration == null || seatConfiguration.trim().isEmpty()) {
+            return 6; // Default to 6 seats per row
+        }
+        
+        // Parse configuration like "3-3" or "2-4-2"
+        String[] parts = seatConfiguration.split("-");
+        int total = 0;
+        for (String part : parts) {
+            try {
+                total += Integer.parseInt(part.trim());
+            } catch (NumberFormatException e) {
+                // If parsing fails, default to 6
+                return 6;
+            }
+        }
+        
+        return total > 0 ? total : 6; // Default to 6 if calculation fails
+    }
+
+    /**
+     * Generate seat number based on index and seats per row.
+     * Examples: index 1, seatsPerRow 6 -> "1A", index 7, seatsPerRow 6 -> "2A"
+     */
+    private String generateSeatNumber(int index, int seatsPerRow) {
+        int row = ((index - 1) / seatsPerRow) + 1;
+        int colIndex = ((index - 1) % seatsPerRow);
+        char col = (char) ('A' + colIndex);
         return row + String.valueOf(col);
+    }
+
+    @Override
+    public void updateSeatAvailability(int flightId, int availableSeats) throws SQLException {
+        Connection conn = DatabaseConnection.getInstance().getConnection();
+        
+        // Get all seats for this flight, ordered by seat_id to ensure consistent ordering
+        List<Seat> allSeats = findByFlightId(flightId);
+        
+        if (allSeats.isEmpty()) {
+            return; // No seats to update
+        }
+        
+        if (availableSeats > allSeats.size()) {
+            throw new SQLException("Available seats (" + availableSeats + ") cannot exceed total seats (" + allSeats.size() + ")");
+        }
+        
+        // Sort seats by seat_id to ensure consistent ordering
+        allSeats.sort((s1, s2) -> Integer.compare(s1.getSeatId(), s2.getSeatId()));
+        
+        // Update seats: first 'availableSeats' as available, rest as unavailable
+        try (PreparedStatement stmt = conn.prepareStatement(
+            "UPDATE seats SET is_available = ? WHERE seat_id = ?"
+        )) {
+            for (int i = 0; i < allSeats.size(); i++) {
+                Seat seat = allSeats.get(i);
+                boolean shouldBeAvailable = (i < availableSeats);
+                
+                // Only update if availability changed
+                if (seat.isAvailable() != shouldBeAvailable) {
+                    stmt.setBoolean(1, shouldBeAvailable);
+                    stmt.setInt(2, seat.getSeatId());
+                    stmt.addBatch();
+                }
+            }
+            
+            stmt.executeBatch();
+        }
     }
 
 }
