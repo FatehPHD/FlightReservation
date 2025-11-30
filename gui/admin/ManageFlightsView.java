@@ -396,7 +396,7 @@ public class ManageFlightsView extends JPanel {
         private JTextField departureTimeField;
         private JLabel arrivalTimeLabel; // Read-only label showing calculated arrival time
         private JComboBox<FlightStatus> statusComboBox;
-        private JTextField availableSeatsField;
+        private JLabel availableSeatsLabel;
         private JTextField priceField;
         private JComboBox<String> aircraftComboBox;
         private JComboBox<String> routeComboBox;
@@ -484,7 +484,7 @@ public class ManageFlightsView extends JPanel {
             }
             formPanel.add(statusComboBox, gbc);
             
-            // Available Seats
+            // Available Seats (Read-only, auto-calculated from aircraft)
             gbc.gridx = 0;
             gbc.gridy++;
             gbc.fill = GridBagConstraints.NONE;
@@ -493,11 +493,13 @@ public class ManageFlightsView extends JPanel {
             gbc.gridx = 1;
             gbc.fill = GridBagConstraints.HORIZONTAL;
             gbc.ipadx = 200;
-            availableSeatsField = new JTextField(20);
-            if (flight != null) {
-                availableSeatsField.setText(String.valueOf(flight.getAvailableSeats()));
+            availableSeatsLabel = new JLabel("Select aircraft to see total seats");
+            availableSeatsLabel.setForeground(Color.GRAY);
+            if (flight != null && flight.getAircraft() != null) {
+                availableSeatsLabel.setText(String.valueOf(flight.getAvailableSeats()));
+                availableSeatsLabel.setForeground(Color.BLACK);
             }
-            formPanel.add(availableSeatsField, gbc);
+            formPanel.add(availableSeatsLabel, gbc);
             
             // Price
             gbc.gridx = 0;
@@ -537,6 +539,33 @@ public class ManageFlightsView extends JPanel {
                     flight.getAircraft().getAircraftId() + ")";
                 aircraftComboBox.setSelectedItem(aircraftStr);
             }
+            // Auto-populate available seats label when aircraft is selected
+            aircraftComboBox.addActionListener(e -> {
+                String selected = (String) aircraftComboBox.getSelectedItem();
+                if (selected != null && !selected.equals("No aircraft available") && aircraftList != null) {
+                    // Extract aircraft ID from selection string
+                    try {
+                        int idStart = selected.indexOf("(ID: ") + 5;
+                        int idEnd = selected.indexOf(")", idStart);
+                        if (idStart > 4 && idEnd > idStart) {
+                            int aircraftId = Integer.parseInt(selected.substring(idStart, idEnd));
+                            Aircraft selectedAircraft = aircraftList.stream()
+                                .filter(a -> a.getAircraftId() == aircraftId)
+                                .findFirst()
+                                .orElse(null);
+                            if (selectedAircraft != null) {
+                                availableSeatsLabel.setText(String.valueOf(selectedAircraft.getTotalSeats()));
+                                availableSeatsLabel.setForeground(Color.BLACK);
+                            }
+                        }
+                    } catch (Exception ex) {
+                        // Ignore parsing errors
+                    }
+                } else {
+                    availableSeatsLabel.setText("Select aircraft to see total seats");
+                    availableSeatsLabel.setForeground(Color.GRAY);
+                }
+            });
             formPanel.add(aircraftComboBox, gbc);
             
             // Route
@@ -633,19 +662,6 @@ public class ManageFlightsView extends JPanel {
                 return false;
             }
             
-            // Parse available seats
-            int availableSeats;
-            try {
-                availableSeats = Integer.parseInt(availableSeatsField.getText().trim());
-                if (availableSeats < 0) {
-                    ErrorDialog.show(this, "Available seats must be non-negative.");
-                    return false;
-                }
-            } catch (NumberFormatException e) {
-                ErrorDialog.show(this, "Available seats must be a valid number.");
-                return false;
-            }
-            
             // Parse price
             double price;
             try {
@@ -683,14 +699,15 @@ public class ManageFlightsView extends JPanel {
                 return false;
             }
             
-            // Validate available seats doesn't exceed aircraft's total seats
-            int aircraftTotalSeats = selectedAircraft.getTotalSeats();
-            if (availableSeats > aircraftTotalSeats) {
-                ErrorDialog.show(this, 
-                    "Available seats (" + availableSeats + ") cannot exceed the aircraft's total seats (" + 
-                    aircraftTotalSeats + ").\n" +
-                    "Aircraft: " + selectedAircraft.getModel() + " has " + aircraftTotalSeats + " total seats.");
-                return false;
+            // Available seats automatically equals aircraft's total seats for new flights
+            // For existing flights, use the current available seats
+            int availableSeats;
+            if (flight == null) {
+                // New flight: available seats = aircraft total seats
+                availableSeats = selectedAircraft.getTotalSeats();
+            } else {
+                // Existing flight: keep current available seats
+                availableSeats = flight.getAvailableSeats();
             }
             
             // Get selected route

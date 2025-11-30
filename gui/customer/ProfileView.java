@@ -7,9 +7,8 @@ import javax.swing.*;
 import java.awt.*;
 
 /**
- * User profile management.
- * Edit profile details and change password.
- * Works for customers, admins, and agents.
+ * User profile view for viewing and editing account information.
+ * Shows different fields based on user type (Customer has extra fields).
  */
 public class ProfileView extends JPanel {
     
@@ -25,13 +24,11 @@ public class ProfileView extends JPanel {
     private void initComponents() {
         setLayout(new BorderLayout());
         
-        // Title
         JLabel title = new JLabel("Profile");
         title.setFont(new Font("Arial", Font.BOLD, 24));
         title.setHorizontalAlignment(SwingConstants.CENTER);
         add(title, BorderLayout.NORTH);
         
-        // Profile information panel
         JPanel profilePanel = new JPanel();
         profilePanel.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
@@ -40,7 +37,6 @@ public class ProfileView extends JPanel {
         gbc.gridx = 0;
         gbc.gridy = 0;
         
-        // Common user fields (available to all user types)
         profilePanel.add(new JLabel("Username:"), gbc);
         gbc.gridx = 1;
         gbc.ipadx = 200;
@@ -70,7 +66,6 @@ public class ProfileView extends JPanel {
         roleField.setPreferredSize(new Dimension(300, 30));
         profilePanel.add(roleField, gbc);
         
-        // Customer-specific fields
         if (user instanceof Customer) {
             Customer customer = (Customer) user;
             
@@ -131,7 +126,6 @@ public class ProfileView extends JPanel {
             profilePanel.add(membershipField, gbc);
         }
         
-        // Password change section
         gbc.gridx = 0;
         gbc.gridy++;
         gbc.ipadx = 0;
@@ -147,13 +141,11 @@ public class ProfileView extends JPanel {
         scrollPane.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         add(scrollPane, BorderLayout.CENTER);
         
-        // Buttons panel
         JPanel buttonPanel = new JPanel();
         JButton saveBtn = new JButton("Save Changes");
         saveBtn.setPreferredSize(new Dimension(150, 35));
         saveBtn.setFont(new Font("Arial", Font.PLAIN, 14));
         saveBtn.addActionListener(e -> {
-            // TODO: Implement save functionality
             JOptionPane.showMessageDialog(this,
                 "Profile update functionality will be implemented here.",
                 "Info", JOptionPane.INFORMATION_MESSAGE);

@@ -12,9 +12,8 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * View and manage user's reservations.
- * Shows all bookings with cancel/modify options.
- * Works for customers, admins, and agents.
+ * Displays user reservations. Works for all user types.
+ * TODO: Add table view with cancel/modify functionality.
  */
 public class MyReservationsView extends JPanel {
     
@@ -30,13 +29,11 @@ public class MyReservationsView extends JPanel {
     private void initComponents() {
         setLayout(new BorderLayout());
         
-        // Title
         JLabel title = new JLabel("My Reservations");
         title.setFont(new Font("Arial", Font.BOLD, 24));
         title.setHorizontalAlignment(SwingConstants.CENTER);
         add(title, BorderLayout.NORTH);
         
-        // Show reservations for any user (customer, admin, or agent)
         ReservationService reservationService = viewManager.getReservationService();
         
         try {
@@ -49,7 +46,6 @@ public class MyReservationsView extends JPanel {
                 noReservations.setBorder(BorderFactory.createEmptyBorder(50, 20, 20, 20));
                 add(noReservations, BorderLayout.CENTER);
             } else {
-                // TODO: Implement reservations table with cancel/modify options
                 JLabel placeholder = new JLabel(
                     "<html><center>Found " + reservations.size() + " reservation(s).<br>" +
                     "Reservation table will be implemented here.</center></html>"
@@ -60,7 +56,6 @@ public class MyReservationsView extends JPanel {
                 add(placeholder, BorderLayout.CENTER);
             }
             
-            // Back button
             JPanel buttonPanel = new JPanel();
             JButton backBtn = new JButton("Back to Dashboard");
             backBtn.setPreferredSize(new Dimension(200, 35));

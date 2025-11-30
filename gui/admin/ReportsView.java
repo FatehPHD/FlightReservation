@@ -89,17 +89,12 @@ public class ReportsView extends JPanel {
         
     }
     
-    /**
-     * Generate and display all reports using AdminService.
-     */
     private void generateReports() {
         try {
             StringBuilder report = new StringBuilder();
-            report.append("═══════════════════════════════════════════════════════════════\n");
-            report.append("           FLIGHT RESERVATION SYSTEM - REPORTS\n");
-            report.append("═══════════════════════════════════════════════════════════════\n\n");
+            report.append("FLIGHT RESERVATION SYSTEM - REPORTS\n");
+            report.append("Generated: ").append(LocalDateTime.now()).append("\n\n");
             
-            // Load all data through AdminService
             List<Flight> flights = adminService.getAllFlights();
             List<Reservation> reservations = adminService.getAllReservations();
             List<Payment> payments = adminService.getAllPayments();
@@ -109,23 +104,19 @@ public class ReportsView extends JPanel {
             List<Airline> airlines = adminService.getAllAirlines();
             List<Airport> airports = adminService.getAllAirports();
             
-            // 1. Operational Statistics
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
             report.append("OPERATIONAL STATISTICS\n");
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-            report.append(String.format("Total Flights:        %d\n", flights.size()));
-            report.append(String.format("Total Routes:         %d\n", routes.size()));
-            report.append(String.format("Total Aircraft:       %d\n", aircraft.size()));
-            report.append(String.format("Total Airlines:       %d\n", airlines.size()));
-            report.append(String.format("Total Airports:       %d\n", airports.size()));
-            report.append(String.format("Total Customers:      %d\n", customers.size()));
-            report.append(String.format("Total Reservations:   %d\n", reservations.size()));
-            report.append(String.format("Total Payments:       %d\n\n", payments.size()));
+            report.append("----------------------\n");
+            report.append("Total Flights:      ").append(flights.size()).append("\n");
+            report.append("Total Routes:       ").append(routes.size()).append("\n");
+            report.append("Total Aircraft:     ").append(aircraft.size()).append("\n");
+            report.append("Total Airlines:     ").append(airlines.size()).append("\n");
+            report.append("Total Airports:     ").append(airports.size()).append("\n");
+            report.append("Total Customers:    ").append(customers.size()).append("\n");
+            report.append("Total Reservations:  ").append(reservations.size()).append("\n");
+            report.append("Total Payments:      ").append(payments.size()).append("\n\n");
             
-            // 2. Flight Performance
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
             report.append("FLIGHT PERFORMANCE\n");
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+            report.append("------------------\n");
             Map<FlightStatus, Long> flightStatusCounts = flights.stream()
                 .collect(Collectors.groupingBy(Flight::getStatus, Collectors.counting()));
             
@@ -135,21 +126,15 @@ public class ReportsView extends JPanel {
             long departed = flightStatusCounts.getOrDefault(FlightStatus.DEPARTED, 0L);
             long arrived = flightStatusCounts.getOrDefault(FlightStatus.ARRIVED, 0L);
             
-            report.append(String.format("Scheduled:            %d (%.1f%%)\n", 
-                scheduled, flights.isEmpty() ? 0 : (scheduled * 100.0 / flights.size())));
-            report.append(String.format("Delayed:              %d (%.1f%%)\n", 
-                delayed, flights.isEmpty() ? 0 : (delayed * 100.0 / flights.size())));
-            report.append(String.format("Cancelled:            %d (%.1f%%)\n", 
-                cancelled, flights.isEmpty() ? 0 : (cancelled * 100.0 / flights.size())));
-            report.append(String.format("Departed:             %d (%.1f%%)\n", 
-                departed, flights.isEmpty() ? 0 : (departed * 100.0 / flights.size())));
-            report.append(String.format("Arrived:              %d (%.1f%%)\n\n", 
-                arrived, flights.isEmpty() ? 0 : (arrived * 100.0 / flights.size())));
+            double totalFlights = flights.size();
+            report.append("Scheduled:  ").append(scheduled).append(" (").append(formatPercent(scheduled, totalFlights)).append(")\n");
+            report.append("Delayed:    ").append(delayed).append(" (").append(formatPercent(delayed, totalFlights)).append(")\n");
+            report.append("Cancelled:  ").append(cancelled).append(" (").append(formatPercent(cancelled, totalFlights)).append(")\n");
+            report.append("Departed:    ").append(departed).append(" (").append(formatPercent(departed, totalFlights)).append(")\n");
+            report.append("Arrived:     ").append(arrived).append(" (").append(formatPercent(arrived, totalFlights)).append(")\n\n");
             
-            // 3. Revenue Summary
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
             report.append("REVENUE SUMMARY\n");
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+            report.append("---------------\n");
             
             double totalRevenue = payments.stream()
                 .filter(p -> p.getStatus() == PaymentStatus.COMPLETED)
@@ -173,20 +158,20 @@ public class ReportsView extends JPanel {
                     Collectors.summingDouble(Payment::getAmount)
                 ));
             
-            report.append(String.format("Total Revenue:        $%.2f\n", totalRevenue));
-            report.append(String.format("Pending Payments:     $%.2f\n", pendingRevenue));
-            report.append(String.format("Refunded Amount:      $%.2f\n", refundedAmount));
-            report.append(String.format("Total Payments:       %d\n\n", payments.size()));
+            report.append("Total Revenue:    $").append(String.format("%.2f", totalRevenue)).append("\n");
+            report.append("Pending Payments: $").append(String.format("%.2f", pendingRevenue)).append("\n");
+            report.append("Refunded:         $").append(String.format("%.2f", refundedAmount)).append("\n");
+            report.append("Total Payments:   ").append(payments.size()).append("\n\n");
             
-            report.append("Revenue by Payment Method:\n");
-            revenueByMethod.forEach((method, amount) -> 
-                report.append(String.format("  %-20s $%.2f\n", method + ":", amount)));
-            report.append("\n");
+            if (!revenueByMethod.isEmpty()) {
+                report.append("Revenue by Payment Method:\n");
+                revenueByMethod.forEach((method, amount) -> 
+                    report.append("  ").append(method).append(": $").append(String.format("%.2f", amount)).append("\n"));
+                report.append("\n");
+            }
             
-            // 4. Booking Trends
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
             report.append("BOOKING TRENDS\n");
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+            report.append("--------------\n");
             
             Map<ReservationStatus, Long> reservationStatusCounts = reservations.stream()
                 .collect(Collectors.groupingBy(Reservation::getStatus, Collectors.counting()));
@@ -196,19 +181,14 @@ public class ReportsView extends JPanel {
             long cancelledRes = reservationStatusCounts.getOrDefault(ReservationStatus.CANCELLED, 0L);
             long completedRes = reservationStatusCounts.getOrDefault(ReservationStatus.COMPLETED, 0L);
             
-            report.append(String.format("Pending:              %d (%.1f%%)\n", 
-                pendingRes, reservations.isEmpty() ? 0 : (pendingRes * 100.0 / reservations.size())));
-            report.append(String.format("Confirmed:            %d (%.1f%%)\n", 
-                confirmedRes, reservations.isEmpty() ? 0 : (confirmedRes * 100.0 / reservations.size())));
-            report.append(String.format("Cancelled:            %d (%.1f%%)\n", 
-                cancelledRes, reservations.isEmpty() ? 0 : (cancelledRes * 100.0 / reservations.size())));
-            report.append(String.format("Completed:            %d (%.1f%%)\n\n", 
-                completedRes, reservations.isEmpty() ? 0 : (completedRes * 100.0 / reservations.size())));
+            double totalReservations = reservations.size();
+            report.append("Pending:   ").append(pendingRes).append(" (").append(formatPercent(pendingRes, totalReservations)).append(")\n");
+            report.append("Confirmed: ").append(confirmedRes).append(" (").append(formatPercent(confirmedRes, totalReservations)).append(")\n");
+            report.append("Cancelled: ").append(cancelledRes).append(" (").append(formatPercent(cancelledRes, totalReservations)).append(")\n");
+            report.append("Completed: ").append(completedRes).append(" (").append(formatPercent(completedRes, totalReservations)).append(")\n\n");
             
-            // 5. Route Utilization
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-            report.append("ROUTE UTILIZATION (Top 10 Most Used Routes)\n");
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+            report.append("ROUTE UTILIZATION (Top 10)\n");
+            report.append("--------------------------\n");
             
             Map<String, Long> routeUsage = reservations.stream()
                 .filter(r -> r.getFlight() != null && r.getFlight().getRoute() != null)
@@ -217,7 +197,7 @@ public class ReportsView extends JPanel {
                         Route route = r.getFlight().getRoute();
                         String origin = route.getOrigin() != null ? route.getOrigin().getAirportCode() : "N/A";
                         String dest = route.getDestination() != null ? route.getDestination().getAirportCode() : "N/A";
-                        return origin + " → " + dest;
+                        return origin + " -> " + dest;
                     },
                     Collectors.counting()
                 ));
@@ -226,15 +206,12 @@ public class ReportsView extends JPanel {
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
                 .limit(10)
                 .forEach(entry -> 
-                    report.append(String.format("  %-30s %d bookings\n", entry.getKey() + ":", entry.getValue())));
+                    report.append("  ").append(entry.getKey()).append(": ").append(entry.getValue()).append(" bookings\n"));
             report.append("\n");
             
-            // 6. Customer Activity
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
             report.append("CUSTOMER ACTIVITY\n");
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+            report.append("-----------------\n");
             
-            // Count membership status from actual customers only (exclude converted admin/agent bookings)
             Map<MembershipStatus, Long> membershipCounts = customers.stream()
                 .filter(c -> c != null && c.getMembershipStatus() != null)
                 .collect(Collectors.groupingBy(
@@ -242,20 +219,13 @@ public class ReportsView extends JPanel {
                     Collectors.counting()
                 ));
             
-            long regular = membershipCounts.getOrDefault(MembershipStatus.REGULAR, 0L);
-            long silver = membershipCounts.getOrDefault(MembershipStatus.SILVER, 0L);
-            long gold = membershipCounts.getOrDefault(MembershipStatus.GOLD, 0L);
-            long platinum = membershipCounts.getOrDefault(MembershipStatus.PLATINUM, 0L);
+            report.append("Regular:   ").append(membershipCounts.getOrDefault(MembershipStatus.REGULAR, 0L)).append("\n");
+            report.append("Silver:    ").append(membershipCounts.getOrDefault(MembershipStatus.SILVER, 0L)).append("\n");
+            report.append("Gold:      ").append(membershipCounts.getOrDefault(MembershipStatus.GOLD, 0L)).append("\n");
+            report.append("Platinum:  ").append(membershipCounts.getOrDefault(MembershipStatus.PLATINUM, 0L)).append("\n\n");
             
-            report.append(String.format("Regular Members:      %d\n", regular));
-            report.append(String.format("Silver Members:       %d\n", silver));
-            report.append(String.format("Gold Members:         %d\n", gold));
-            report.append(String.format("Platinum Members:     %d\n\n", platinum));
-            
-            // 7. Aircraft Status
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
             report.append("AIRCRAFT STATUS\n");
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+            report.append("---------------\n");
             
             long activeAircraft = aircraft.stream()
                 .filter(a -> "ACTIVE".equals(a.getStatus()))
@@ -267,36 +237,31 @@ public class ReportsView extends JPanel {
                 .filter(a -> "MAINTENANCE".equals(a.getStatus()))
                 .count();
             
-            report.append(String.format("Active:               %d (%.1f%%)\n", 
-                activeAircraft, aircraft.isEmpty() ? 0 : (activeAircraft * 100.0 / aircraft.size())));
-            report.append(String.format("Inactive:             %d (%.1f%%)\n", 
-                inactiveAircraft, aircraft.isEmpty() ? 0 : (inactiveAircraft * 100.0 / aircraft.size())));
-            report.append(String.format("In Maintenance:       %d (%.1f%%)\n\n", 
-                maintenanceAircraft, aircraft.isEmpty() ? 0 : (maintenanceAircraft * 100.0 / aircraft.size())));
+            double totalAircraft = aircraft.size();
+            report.append("Active:        ").append(activeAircraft).append(" (").append(formatPercent(activeAircraft, totalAircraft)).append(")\n");
+            report.append("Inactive:      ").append(inactiveAircraft).append(" (").append(formatPercent(inactiveAircraft, totalAircraft)).append(")\n");
+            report.append("Maintenance:   ").append(maintenanceAircraft).append(" (").append(formatPercent(maintenanceAircraft, totalAircraft)).append(")\n\n");
             
-            // 8. Payment Status Breakdown
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-            report.append("PAYMENT STATUS BREAKDOWN\n");
-            report.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+            report.append("PAYMENT STATUS\n");
+            report.append("--------------\n");
             
             Map<PaymentStatus, Long> paymentStatusCounts = payments.stream()
                 .collect(Collectors.groupingBy(Payment::getStatus, Collectors.counting()));
             
+            double totalPayments = payments.size();
             paymentStatusCounts.forEach((status, count) -> 
-                report.append(String.format("%-20s %d (%.1f%%)\n", 
-                    status + ":", count, 
-                    payments.isEmpty() ? 0 : (count * 100.0 / payments.size()))));
-            report.append("\n");
-            
-            report.append("═══════════════════════════════════════════════════════════════\n");
-            report.append(String.format("Report Generated: %s\n", LocalDateTime.now().toString()));
-            report.append("═══════════════════════════════════════════════════════════════\n");
+                report.append(status).append(": ").append(count).append(" (").append(formatPercent(count, totalPayments)).append(")\n"));
             
             reportTextArea.setText(report.toString());
-            reportTextArea.setCaretPosition(0); // Scroll to top
+            reportTextArea.setCaretPosition(0);
             
         } catch (SQLException e) {
             ErrorDialog.show(this, "Error generating reports: " + e.getMessage(), e);
         }
+    }
+    
+    private String formatPercent(long value, double total) {
+        if (total == 0) return "0.0%";
+        return String.format("%.1f%%", (value * 100.0 / total));
     }
 }

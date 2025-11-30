@@ -82,6 +82,17 @@ public class FlightDAOImpl implements FlightDAO {
         }
         int totalSeats = aircraft.getTotalSeats();
         
+        // Check if this is a new flight (doesn't exist yet)
+        Flight existingFlight = findByFlightNumber(flight.getFlightNumber());
+        boolean isNewFlight = (existingFlight == null);
+        
+        // For new flights, automatically set available seats to match aircraft's total seats
+        int availableSeats = flight.getAvailableSeats();
+        if (isNewFlight) {
+            availableSeats = totalSeats;
+            flight.setAvailableSeats(availableSeats);
+        }
+        
         // Begin transaction to ensure atomicity of flight and seat creation
         TransactionManager.begin(conn);
         int generatedFlightId;
@@ -99,7 +110,7 @@ public class FlightDAOImpl implements FlightDAO {
                 stmt.setTimestamp(2, depTs, UTC_CALENDAR);
                 stmt.setTimestamp(3, arrTs, UTC_CALENDAR);
                 stmt.setString(4, flight.getStatus().name());
-                stmt.setInt(5, flight.getAvailableSeats());
+                stmt.setInt(5, availableSeats);
                 stmt.setDouble(6, flight.getPrice());
                 stmt.setInt(7, flight.getAircraft().getAircraftId());
                 stmt.setInt(8, flight.getRoute().getRouteId());
@@ -122,12 +133,13 @@ public class FlightDAOImpl implements FlightDAO {
         
             // Automatically create seats for the new flight
             // Use aircraft's totalSeats and seatConfiguration
-            // because the aircraft determines the actual number of seats and layout
-            // Mark only the specified available seats as available
+            // For new flights, all seats are available (availableSeats = totalSeats)
             SeatDAO seatDAO = new SeatDAOImpl();
             String seatConfig = aircraft.getSeatConfiguration();
-            int availableSeats = flight.getAvailableSeats();
-            seatDAO.createSeatsForFlight(generatedFlightId, totalSeats, seatConfig, availableSeats);
+            if (isNewFlight) {
+                // New flight: all seats are available
+                seatDAO.createSeatsForFlight(generatedFlightId, totalSeats, seatConfig, totalSeats);
+            }
             
             // Commit transaction if everything succeeded
             TransactionManager.commit(conn);

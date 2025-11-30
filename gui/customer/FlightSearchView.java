@@ -16,9 +16,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Flight search form.
- * Allows customers to search for flights by origin, destination, and date.
- * Loads airports from database and uses FlightService to search flights.
+ * Flight search form for customers.
+ * Uses FlightService to search available flights by route and date.
  */
 public class FlightSearchView extends JPanel {
     
@@ -42,15 +41,12 @@ public class FlightSearchView extends JPanel {
         gbc.gridx = 0;
         gbc.gridy = 0;
         
-        // Title
         JLabel title = new JLabel("Search Flights");
         title.setFont(new Font("Arial", Font.BOLD, 28));
-        gbc.gridy = 0;
         gbc.gridwidth = 2;
         add(title, gbc);
         gbc.gridwidth = 1;
         
-        // Origin label and dropdown
         gbc.gridy = 1;
         gbc.anchor = GridBagConstraints.EAST;
         add(new JLabel("Origin:"), gbc);
@@ -63,7 +59,6 @@ public class FlightSearchView extends JPanel {
         originComboBox.setPreferredSize(new Dimension(300, 30));
         add(originComboBox, gbc);
         
-        // Destination label and dropdown
         gbc.gridx = 0;
         gbc.gridy = 2;
         gbc.anchor = GridBagConstraints.EAST;
@@ -79,7 +74,6 @@ public class FlightSearchView extends JPanel {
         destinationComboBox.setPreferredSize(new Dimension(300, 30));
         add(destinationComboBox, gbc);
         
-        // Date label and field
         gbc.gridx = 0;
         gbc.gridy = 3;
         gbc.anchor = GridBagConstraints.EAST;
@@ -95,7 +89,6 @@ public class FlightSearchView extends JPanel {
         dateField.setPreferredSize(new Dimension(300, 30));
         add(dateField, gbc);
         
-        // Search button
         gbc.gridx = 0;
         gbc.gridy = 4;
         gbc.gridwidth = 2;
@@ -109,7 +102,6 @@ public class FlightSearchView extends JPanel {
         searchBtn.addActionListener(e -> performSearch());
         add(searchBtn, gbc);
         
-        // Back button
         gbc.gridy = 5;
         gbc.insets = new Insets(10, 15, 15, 15);
         JButton backBtn = new JButton("Back to Dashboard");
@@ -122,42 +114,30 @@ public class FlightSearchView extends JPanel {
         add(backBtn, gbc);
     }
     
-    /**
-     * Load all airports from database and populate dropdowns.
-     */
     private void loadAirports() {
         try {
             List<Airport> airports = flightService.getAllAirports();
-            
-            // Sort airports by code
             List<String> airportCodes = airports.stream()
                 .map(Airport::getAirportCode)
                 .sorted()
                 .collect(Collectors.toList());
             
-            // Independent combo models (Update #1)
             originComboBox.setModel(new DefaultComboBoxModel<>(
                 airportCodes.toArray(new String[0])
             ));
-            
             destinationComboBox.setModel(new DefaultComboBoxModel<>(
                 airportCodes.toArray(new String[0])
             ));
-            
         } catch (SQLException e) {
             ErrorDialog.show(this, "Failed to load airports: " + e.getMessage());
         }
     }
     
-    /**
-     * Perform flight search using FlightService.
-     */
     private void performSearch() {
         String originCode = (String) originComboBox.getSelectedItem();
         String destinationCode = (String) destinationComboBox.getSelectedItem();
         String dateStr = dateField.getText().trim();
         
-        // Validation
         if (originCode == null || originCode.isEmpty()) {
             ErrorDialog.show(this, "Please select an origin airport.");
             return;
@@ -178,7 +158,6 @@ public class FlightSearchView extends JPanel {
             return;
         }
         
-        // Parse date
         LocalDate date;
         try {
             date = LocalDate.parse(dateStr, DateTimeFormatter.ISO_LOCAL_DATE);
@@ -187,26 +166,21 @@ public class FlightSearchView extends JPanel {
             return;
         }
         
-        // Past date
         if (date.isBefore(LocalDate.now())) {
             ErrorDialog.show(this, "Departure date cannot be in the past.");
             return;
         }
         
-        // Perform search
         try {
             List<Flight> flights = flightService.searchFlights(originCode, destinationCode, date);
-
-            // Update #2 — If no flights found, do NOT navigate
+            
             if (flights.isEmpty()) {
                 ErrorDialog.show(this, "No flights found for your selected route and date.");
                 return;
             }
             
-            // Navigate to results view
             viewManager.showView("FLIGHT_RESULTS", 
                 new FlightResultsView(viewManager, flights));
-            
         } catch (SQLException e) {
             ErrorDialog.show(this, "Error searching flights: " + e.getMessage(), e);
         } catch (IllegalArgumentException e) {

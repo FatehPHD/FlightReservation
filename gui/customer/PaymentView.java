@@ -7,7 +7,6 @@ import businesslogic.entities.Flight;
 import businesslogic.entities.Seat;
 import businesslogic.entities.Payment;
 import businesslogic.entities.Reservation;
-import businesslogic.entities.Customer;
 import businesslogic.entities.User;
 import businesslogic.entities.enums.PaymentMethod;
 import businesslogic.entities.enums.SeatClass;
@@ -20,7 +19,6 @@ import java.awt.*;
 import java.sql.SQLException;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Payment processing form (SIMULATED - no real transactions).
@@ -478,6 +476,9 @@ public class PaymentView extends JPanel {
         payBtn.setFont(new Font("Arial", Font.BOLD, 14));
         payBtn.setBackground(new Color(46, 139, 87));
         payBtn.setForeground(Color.WHITE);
+        payBtn.setOpaque(true);
+        payBtn.setBorderPainted(false);
+        payBtn.setFocusPainted(false);
         payBtn.addActionListener(e -> processPayment());
         panel.add(payBtn);
         

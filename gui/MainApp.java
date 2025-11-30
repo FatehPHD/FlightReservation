@@ -8,6 +8,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.sql.SQLException;
 
+/**
+ * Main application entry point.
+ * Initializes services and sets up the GUI with CardLayout navigation.
+ */
 public class MainApp extends JFrame {
 
     private ViewManager viewManager;
@@ -18,7 +22,6 @@ public class MainApp extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         
-        // Initialize service manager (creates all services)
         ServiceManager serviceManager;
         try {
             serviceManager = new ServiceManager();
@@ -30,15 +33,11 @@ public class MainApp extends JFrame {
             return;
         }
         
-        // Set CardLayout on the content pane (not the JFrame itself)
         Container contentPane = this.getContentPane();
         CardLayout cardLayout = new CardLayout();
         contentPane.setLayout(cardLayout);
 
-        // View Manager handles swapping JPanels and provides access to services
         viewManager = new ViewManager(cardLayout, contentPane, serviceManager);
-
-        // Load first screen
         viewManager.showView("LOGIN", new LoginView(viewManager));
 
         setVisible(true);

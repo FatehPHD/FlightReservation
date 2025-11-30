@@ -10,6 +10,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.sql.SQLException;
 
+/**
+ * Login screen for all user types (Customer, Agent, Admin).
+ * Authenticates users and navigates to main dashboard.
+ */
 public class LoginView extends JPanel {
 
     private ViewManager viewManager;
@@ -17,10 +21,7 @@ public class LoginView extends JPanel {
 
     public LoginView(ViewManager viewManager) {
         this.viewManager = viewManager;
-        
-        // Get UserDAO to authenticate any user type (Customer, FlightAgent, SystemAdmin)
         this.userDAO = new UserDAOImpl();
-        
         setLayout(new GridBagLayout());
 
         JLabel title = new JLabel("Login");
@@ -34,7 +35,6 @@ public class LoginView extends JPanel {
         JButton loginBtn = new JButton("Login");
         JButton createAccountBtn = new JButton("Create Account");
 
-        // Layout
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.gridx = 0;
@@ -56,7 +56,6 @@ public class LoginView extends JPanel {
         gbc.gridy++;
         add(createAccountBtn, gbc);
 
-        // Login button action
         loginBtn.addActionListener(e -> {
             String username = usernameField.getText().trim();
             String password = new String(passwordField.getPassword());
@@ -69,15 +68,10 @@ public class LoginView extends JPanel {
             }
             
             try {
-                // Get user by username (works for all user types)
                 User user = userDAO.findByUsername(username);
                 
                 if (user != null && password.equals(user.getPassword())) {
-                    // Store logged-in user in ViewManager (works for all user types)
                     viewManager.setCurrentUser(user);
-                    
-                    // All users go to CustomerDashboardView first
-                    // Role-specific buttons will be displayed on the dashboard
                     viewManager.showView("CUSTOMER_DASHBOARD", 
                         new CustomerDashboardView(viewManager));
                 } else {
@@ -87,7 +81,7 @@ public class LoginView extends JPanel {
                     passwordField.setText("");
                 }
             } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(this,
+                JOptionPane.showMessageDialog(this, 
                     "Database error: " + ex.getMessage(),
                     "Error", JOptionPane.ERROR_MESSAGE);
             }

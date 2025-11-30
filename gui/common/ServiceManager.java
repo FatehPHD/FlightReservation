@@ -11,8 +11,8 @@ import datalayer.impl.*;
 import java.sql.SQLException;
 
 /**
- * Service Manager - Initializes and provides access to all service classes.
- * This ensures the GUI layer only interacts with services, not DAOs directly.
+ * Initializes and provides access to all service classes.
+ * GUI layer only interacts with services, never DAOs directly.
  */
 public class ServiceManager {
     
@@ -23,7 +23,6 @@ public class ServiceManager {
     private AdminService adminService;
     
     public ServiceManager() throws SQLException {
-        // Initialize all DAOs
         UserDAO userDAO = new UserDAOImpl();
         ReservationDAO reservationDAO = new ReservationDAOImpl();
         FlightDAO flightDAO = new FlightDAOImpl();
@@ -34,7 +33,6 @@ public class ServiceManager {
         AirportDAO airportDAO = new AirportDAOImpl();
         RouteDAO routeDAO = new RouteDAOImpl();
         
-        // Initialize services with their dependencies
         this.customerService = new CustomerService(userDAO, reservationDAO);
         this.flightService = new FlightService(flightDAO, airportDAO);
         this.reservationService = new ReservationService(reservationDAO, seatDAO, flightService);

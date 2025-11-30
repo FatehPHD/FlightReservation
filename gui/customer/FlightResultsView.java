@@ -10,8 +10,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * Display search results in a table.
- * Shows available flights with book button for each.
+ * Displays flight search results in a table.
+ * Each row has a "Book" button that navigates to seat selection.
  */
 public class FlightResultsView extends JPanel {
     
@@ -29,19 +29,15 @@ public class FlightResultsView extends JPanel {
     private void initComponents() {
         setLayout(new BorderLayout());
         
-        // Title
         JLabel title = new JLabel("Flight Search Results");
         title.setFont(new Font("Arial", Font.BOLD, 24));
         title.setHorizontalAlignment(SwingConstants.CENTER);
         add(title, BorderLayout.NORTH);
         
-        // Results message
-        String resultsMessage;
-        if (flights.isEmpty()) {
-            resultsMessage = "No flights found matching your criteria.";
-        } else {
-            resultsMessage = "Found " + flights.size() + " flight(s) matching your search.";
-        }
+        String resultsMessage = flights.isEmpty() 
+            ? "No flights found matching your criteria."
+            : "Found " + flights.size() + " flight(s) matching your search.";
+        
         JLabel resultsLabel = new JLabel(resultsMessage);
         resultsLabel.setFont(new Font("Arial", Font.PLAIN, 14));
         resultsLabel.setHorizontalAlignment(SwingConstants.CENTER);
@@ -49,7 +45,6 @@ public class FlightResultsView extends JPanel {
         add(resultsLabel, BorderLayout.CENTER);
         
         if (flights.isEmpty()) {
-            // Show back button if no results
             JPanel buttonPanel = new JPanel();
             JButton backBtn = new JButton("Back to Search");
             backBtn.setPreferredSize(new Dimension(200, 35));
@@ -63,7 +58,6 @@ public class FlightResultsView extends JPanel {
             return;
         }
         
-        // Create table model
         String[] columnNames = {
             "Flight Number", "Origin", "Destination", 
             "Departure", "Arrival", "Price", "Available Seats", "Action"
@@ -71,11 +65,10 @@ public class FlightResultsView extends JPanel {
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return column == 7; // Only action column is "editable" (for button)
+                return column == 7;
             }
         };
         
-        // Populate table
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         for (Flight flight : flights) {
             String origin = flight.getRoute() != null && flight.getRoute().getOrigin() != null
@@ -86,8 +79,6 @@ public class FlightResultsView extends JPanel {
                 ? flight.getDepartureTime().format(formatter) : "N/A";
             String arrival = flight.getArrivalTime() != null
                 ? flight.getArrivalTime().format(formatter) : "N/A";
-            String price = String.format("$%.2f", flight.getPrice());
-            String availableSeats = String.valueOf(flight.getAvailableSeats());
             
             tableModel.addRow(new Object[]{
                 flight.getFlightNumber(),
@@ -95,29 +86,25 @@ public class FlightResultsView extends JPanel {
                 destination,
                 departure,
                 arrival,
-                price,
-                availableSeats,
+                String.format("$%.2f", flight.getPrice()),
+                String.valueOf(flight.getAvailableSeats()),
                 "Book"
             });
         }
         
-        // Create table
         flightTable = new JTable(tableModel);
         flightTable.setRowHeight(30);
         flightTable.setFont(new Font("Arial", Font.PLAIN, 12));
         flightTable.getTableHeader().setFont(new Font("Arial", Font.BOLD, 12));
         flightTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         
-        // Add button renderer and editor for action column
         flightTable.getColumn("Action").setCellRenderer(new ButtonRenderer());
         flightTable.getColumn("Action").setCellEditor(new ButtonEditor(new JCheckBox()));
         
-        // Add table to scroll pane
         JScrollPane scrollPane = new JScrollPane(flightTable);
         scrollPane.setPreferredSize(new Dimension(800, 400));
         add(scrollPane, BorderLayout.CENTER);
         
-        // Button panel
         JPanel buttonPanel = new JPanel();
         JButton backBtn = new JButton("Back to Search");
         backBtn.setPreferredSize(new Dimension(200, 35));
@@ -130,9 +117,6 @@ public class FlightResultsView extends JPanel {
         add(buttonPanel, BorderLayout.SOUTH);
     }
     
-    /**
-     * Button renderer for table cells.
-     */
     private class ButtonRenderer extends JButton implements javax.swing.table.TableCellRenderer {
         public ButtonRenderer() {
             setOpaque(true);
@@ -146,9 +130,6 @@ public class FlightResultsView extends JPanel {
         }
     }
     
-    /**
-     * Button editor for table cells.
-     */
     private class ButtonEditor extends DefaultCellEditor {
         protected JButton button;
         private String label;
@@ -174,12 +155,8 @@ public class FlightResultsView extends JPanel {
         
         @Override
         public Object getCellEditorValue() {
-            if (isPushed) {
-                // Handle book button click
-                if (selectedRow >= 0 && selectedRow < flights.size()) {
-                    Flight selectedFlight = flights.get(selectedRow);
-                    handleBookFlight(selectedFlight);
-                }
+            if (isPushed && selectedRow >= 0 && selectedRow < flights.size()) {
+                handleBookFlight(flights.get(selectedRow));
             }
             isPushed = false;
             return label;
@@ -197,11 +174,8 @@ public class FlightResultsView extends JPanel {
         }
     }
     
-    /**
-     * Handle booking a flight - navigate to seat selection.
-     */
     private void handleBookFlight(Flight flight) {
         viewManager.showView("SEAT_SELECTION", 
-            new SeatSelectionView(viewManager, flight));
+            new SeatSelectionView(viewManager, flight, flights));
     }
 }

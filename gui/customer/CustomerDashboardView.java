@@ -13,9 +13,9 @@ import javax.swing.*;
 import java.awt.*;
 
 /**
- * Main dashboard for customers after login.
- * Shows welcome message and quick action buttons.
- * Acts as a navigation hub connecting customers to all features.
+ * Main dashboard shown after login.
+ * Displays role-specific navigation buttons (Admin/Agent dashboards for those roles).
+ * All users can access flight search, reservations, and profile.
  */
 public class CustomerDashboardView extends JPanel {
     
@@ -33,13 +33,10 @@ public class CustomerDashboardView extends JPanel {
         gbc.gridx = 0;
         gbc.gridy = 0;
         
-        // Title
         JLabel title = new JLabel("Dashboard");
         title.setFont(new Font("Arial", Font.BOLD, 28));
-        gbc.gridy = 0;
         add(title, gbc);
         
-        // Welcome message - adapts based on user type
         User currentUser = viewManager.getCurrentUser();
         String welcomeMessage = "Welcome!";
         if (currentUser instanceof Customer) {
@@ -54,7 +51,6 @@ public class CustomerDashboardView extends JPanel {
                 }
             }
         } else if (currentUser != null && currentUser.getUsername() != null) {
-            // For Admin and Agent, show username
             welcomeMessage = "Welcome, " + currentUser.getUsername() + "!";
         }
         
@@ -64,15 +60,12 @@ public class CustomerDashboardView extends JPanel {
         gbc.insets = new Insets(10, 15, 30, 15);
         add(welcomeLabel, gbc);
         
-        // Navigation buttons panel
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
         buttonPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
         
-        // Role-specific buttons (shown based on user role)
         UserRole userRole = currentUser != null ? currentUser.getRole() : null;
         
-        // Admin Dashboard button (for SystemAdmins)
         if (userRole == UserRole.SYSTEM_ADMIN) {
             JButton adminDashboardBtn = new JButton("Admin Dashboard");
             adminDashboardBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -87,7 +80,6 @@ public class CustomerDashboardView extends JPanel {
             buttonPanel.add(Box.createVerticalStrut(15));
         }
         
-        // Agent Dashboard button (for FlightAgents)
         if (userRole == UserRole.FLIGHT_AGENT) {
             JButton agentDashboardBtn = new JButton("Agent Dashboard");
             agentDashboardBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -102,7 +94,6 @@ public class CustomerDashboardView extends JPanel {
             buttonPanel.add(Box.createVerticalStrut(15));
         }
         
-        // Search Flights button (available to all users)
         JButton searchFlightsBtn = new JButton("Search Flights");
         searchFlightsBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         searchFlightsBtn.setPreferredSize(new Dimension(250, 40));
@@ -114,7 +105,6 @@ public class CustomerDashboardView extends JPanel {
         buttonPanel.add(searchFlightsBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
-        // My Reservations button
         JButton myReservationsBtn = new JButton("My Reservations");
         myReservationsBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         myReservationsBtn.setPreferredSize(new Dimension(250, 40));
@@ -129,7 +119,6 @@ public class CustomerDashboardView extends JPanel {
         buttonPanel.add(myReservationsBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
-        // Profile button
         JButton profileBtn = new JButton("Profile");
         profileBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         profileBtn.setPreferredSize(new Dimension(250, 40));
@@ -144,21 +133,17 @@ public class CustomerDashboardView extends JPanel {
         buttonPanel.add(profileBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
-        // Logout button
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         logoutBtn.setPreferredSize(new Dimension(250, 40));
         logoutBtn.setMaximumSize(new Dimension(250, 40));
         logoutBtn.setFont(new Font("Arial", Font.PLAIN, 16));
         logoutBtn.addActionListener(e -> {
-            // Clear session data
             viewManager.logout();
-            // Navigate to login
             viewManager.showView("LOGIN", new LoginView(viewManager));
         });
         buttonPanel.add(logoutBtn);
         
-        // Add button panel to main layout
         gbc.gridy = 2;
         gbc.insets = new Insets(20, 15, 15, 15);
         add(buttonPanel, gbc);

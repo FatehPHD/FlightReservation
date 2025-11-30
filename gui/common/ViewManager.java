@@ -13,14 +13,14 @@ import javax.swing.*;
 import java.awt.*;
 
 /**
- * ViewManager - Manages navigation between views and provides access to services.
- * Handles CardLayout switching and maintains current user session.
+ * Manages view navigation using CardLayout and maintains user session.
+ * Provides access to service layer through ServiceManager.
  */
 public class ViewManager {
 
     private CardLayout cardLayout;
     private Container container;
-    private User currentUser;  // Can be Customer, FlightAgent, or SystemAdmin
+    private User currentUser;
     private ServiceManager serviceManager;
 
     public ViewManager(CardLayout layout, Container container, ServiceManager serviceManager) {
@@ -31,14 +31,10 @@ public class ViewManager {
     }
 
     /**
-     * Show a view by name. Automatically wraps in JScrollPane if needed.
-     * Removes existing view with the same name to ensure fresh data is displayed.
-     * @param name Unique identifier for the view
-     * @param panel JPanel to display
+     * Displays a view by name. Removes any existing view with the same name
+     * to ensure fresh data is shown (important after logout/login).
      */
     public void showView(String name, JPanel panel) {
-        // Remove existing component with this name if it exists
-        // This ensures fresh data is displayed, especially important after logout/login
         Component existing = null;
         for (Component comp : container.getComponents()) {
             if (comp.getName() != null && comp.getName().equals(name)) {
@@ -51,43 +47,27 @@ public class ViewManager {
             container.remove(existing);
         }
         
-        // Wrap the panel in a scroll pane and add it
         JScrollPane scrollPane = new JScrollPane(panel);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        scrollPane.setBorder(null); // Remove border for cleaner look
-        scrollPane.getViewport().setBackground(panel.getBackground()); // Match background
-        scrollPane.setName(name); // Set name for identification
+        scrollPane.setBorder(null);
+        scrollPane.getViewport().setBackground(panel.getBackground());
+        scrollPane.setName(name);
         container.add(scrollPane, name);
         
-        // Show the view
         cardLayout.show(container, name);
-        
-        // Revalidate and repaint to ensure the new component is displayed
         container.revalidate();
         container.repaint();
     }
 
-    /**
-     * Set the currently logged-in user.
-     * @param user User object (Customer, FlightAgent, or SystemAdmin)
-     */
     public void setCurrentUser(User user) {
         this.currentUser = user;
     }
 
-    /**
-     * Get the currently logged-in user.
-     * @return Current user or null if not logged in
-     */
     public User getCurrentUser() {
         return currentUser;
     }
 
-    /**
-     * Get current user as Customer (convenience method).
-     * @return Customer or null if not a customer or not logged in
-     */
     public Customer getCurrentCustomer() {
         if (currentUser instanceof Customer) {
             return (Customer) currentUser;
@@ -95,10 +75,6 @@ public class ViewManager {
         return null;
     }
 
-    /**
-     * Get current user as FlightAgent (convenience method).
-     * @return FlightAgent or null if not an agent or not logged in
-     */
     public FlightAgent getCurrentAgent() {
         if (currentUser instanceof FlightAgent) {
             return (FlightAgent) currentUser;
@@ -106,10 +82,6 @@ public class ViewManager {
         return null;
     }
 
-    /**
-     * Get current user as SystemAdmin (convenience method).
-     * @return SystemAdmin or null if not an admin or not logged in
-     */
     public SystemAdmin getCurrentAdmin() {
         if (currentUser instanceof SystemAdmin) {
             return (SystemAdmin) currentUser;
@@ -117,49 +89,29 @@ public class ViewManager {
         return null;
     }
 
-    /**
-     * Check if current user is a customer.
-     */
     public boolean isCustomer() {
         return currentUser instanceof Customer;
     }
 
-    /**
-     * Check if current user is a flight agent.
-     */
     public boolean isAgent() {
         return currentUser instanceof FlightAgent;
     }
 
-    /**
-     * Check if current user is a system admin.
-     */
     public boolean isAdmin() {
         return currentUser instanceof SystemAdmin;
     }
 
-    /**
-     * Logout current user.
-     */
     public void logout() {
         this.currentUser = null;
     }
 
-    /**
-     * Check if any user is logged in.
-     */
     public boolean isLoggedIn() {
         return currentUser != null;
     }
 
-    /**
-     * Get the service manager (provides access to all services).
-     */
     public ServiceManager getServiceManager() {
         return serviceManager;
     }
-
-    // Convenience methods for accessing services directly
     
     public CustomerService getCustomerService() {
         return serviceManager.getCustomerService();
@@ -181,9 +133,6 @@ public class ViewManager {
         return serviceManager.getAdminService();
     }
     
-    /**
-     * Get the container (useful for dialogs that need parent component).
-     */
     public Container getContainer() {
         return container;
     }

@@ -25,6 +25,7 @@ public class SeatSelectionView extends JPanel {
     
     private ViewManager viewManager;
     private Flight flight;
+    private List<Flight> flightsList; // Store flights list to go back to results
     private ReservationService reservationService;
     private List<Seat> allSeats;
     private List<Seat> selectedSeats;
@@ -33,8 +34,13 @@ public class SeatSelectionView extends JPanel {
     private JLabel totalPriceLabel;
     
     public SeatSelectionView(ViewManager viewManager, Flight flight) {
+        this(viewManager, flight, null);
+    }
+    
+    public SeatSelectionView(ViewManager viewManager, Flight flight, List<Flight> flightsList) {
         this.viewManager = viewManager;
         this.flight = flight;
+        this.flightsList = flightsList;
         this.reservationService = viewManager.getReservationService();
         this.selectedSeats = new ArrayList<>();
         initComponents();
@@ -129,9 +135,14 @@ public class SeatSelectionView extends JPanel {
         backBtn.setPreferredSize(new Dimension(120, 35));
         backBtn.setFont(new Font("Arial", Font.PLAIN, 14));
         backBtn.addActionListener(e -> {
-            // Go back to flight search
-            viewManager.showView("FLIGHT_SEARCH", 
-                new FlightSearchView(viewManager));
+            // Go back to flight results if available, otherwise go to search
+            if (flightsList != null && !flightsList.isEmpty()) {
+                viewManager.showView("FLIGHT_RESULTS", 
+                    new FlightResultsView(viewManager, flightsList));
+            } else {
+                viewManager.showView("FLIGHT_SEARCH", 
+                    new FlightSearchView(viewManager));
+            }
         });
         
         JButton continueBtn = new JButton("Continue to Payment");

@@ -278,6 +278,7 @@ public class ReservationDAOImpl implements ReservationDAO {
                                              int reservationId,
                                              Reservation reservation) throws SQLException {
         if (reservation.getSeats() == null || reservation.getSeats().isEmpty()) {
+            System.err.println("Warning: No seats provided for reservation " + reservationId);
             return;
         }
 
@@ -290,6 +291,10 @@ public class ReservationDAOImpl implements ReservationDAO {
             Timestamp now = Timestamp.valueOf(LocalDateTime.now());
 
             for (Seat seat : reservation.getSeats()) {
+                if (seat == null || seat.getSeatId() <= 0) {
+                    System.err.println("Warning: Invalid seat for reservation " + reservationId + ": " + seat);
+                    continue;
+                }
                 stmt.setTimestamp(1, now);
                 stmt.setString(2, passengerName);
                 stmt.setInt(3, reservationId);
@@ -298,7 +303,10 @@ public class ReservationDAOImpl implements ReservationDAO {
                 stmt.addBatch();
             }
 
-            stmt.executeBatch();
+            int[] results = stmt.executeBatch();
+            if (results.length == 0) {
+                System.err.println("Warning: No tickets created for reservation " + reservationId);
+            }
         }
     }
 
@@ -316,9 +324,14 @@ public class ReservationDAOImpl implements ReservationDAO {
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     int seatId = rs.getInt("seat_id");
-                    Seat seat = seatDAO.findById(seatId);
-                    if (seat != null) {
-                        seats.add(seat);
+                    if (!rs.wasNull()) {
+                        Seat seat = seatDAO.findById(seatId);
+                        if (seat != null) {
+                            seats.add(seat);
+                        } else {
+                            // Log warning if seat not found (shouldn't happen in normal operation)
+                            System.err.println("Warning: Seat with ID " + seatId + " not found for reservation " + reservationId);
+                        }
                     }
                 }
             }

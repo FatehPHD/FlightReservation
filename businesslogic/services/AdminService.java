@@ -35,11 +35,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * AdminService - Handles administrative operations.
- * Provides management of flights, aircraft, airlines, airports, routes, users,
- * reservations, and payments, including cascading deletes and reporting.
- *
- * Location: businesslogic/services/AdminService.java
+ * Handles all admin operations: CRUD for flights, aircraft, airlines, airports, routes.
+ * Implements cascading deletes to maintain referential integrity.
  */
 public class AdminService {
 
@@ -53,10 +50,6 @@ public class AdminService {
     private final ReservationDAO reservationDAO;
     private final PaymentDAO paymentDAO;
 
-    /**
-     * Original simpler constructor (no PaymentDAO).
-     * Methods that require PaymentDAO will fail if paymentDAO is null.
-     */
     public AdminService(FlightDAO flightDAO,
                         AircraftDAO aircraftDAO,
                         AirlineDAO airlineDAO,
@@ -68,9 +61,6 @@ public class AdminService {
         this(flightDAO, aircraftDAO, airlineDAO, airportDAO, routeDAO, userDAO, seatDAO, reservationDAO, null);
     }
 
-    /**
-     * Full constructor with PaymentDAO support.
-     */
     public AdminService(FlightDAO flightDAO,
                         AircraftDAO aircraftDAO,
                         AirlineDAO airlineDAO,
@@ -91,14 +81,6 @@ public class AdminService {
         this.paymentDAO = paymentDAO;
     }
 
-    // ============================================================
-    // Flight Management
-    // ============================================================
-
-    /**
-     * Add a new flight.
-     * Validates details and ensures flight number is unique.
-     */
     public Flight addFlight(Flight flight) throws SQLException {
         validateFlight(flight);
 
@@ -111,17 +93,11 @@ public class AdminService {
         return flightDAO.save(flight);
     }
 
-    /**
-     * Update an existing flight.
-     */
     public boolean updateFlight(Flight flight) throws SQLException {
         validateFlight(flight);
         return flightDAO.update(flight);
     }
 
-    /**
-     * Cancel a flight (set status to CANCELLED).
-     */
     public boolean removeFlight(String flightNumber) throws SQLException {
         Flight flight = getFlightByNumber(flightNumber);
         if (flight == null) {
@@ -133,12 +109,7 @@ public class AdminService {
     }
 
     /**
-     * Delete a flight permanently from the database.
-     * Cascades:
-     * 1. Delete tickets for reservations on this flight
-     * 2. Delete reservations
-     * 3. Delete seats
-     * 4. Delete the flight itself
+     * Permanently delete flight with cascading deletes: tickets -> reservations -> seats -> flight
      */
     public boolean deleteFlight(String flightNumber) throws SQLException {
         Flight flight = getFlightByNumber(flightNumber);
@@ -201,16 +172,10 @@ public class AdminService {
         }
     }
 
-    /**
-     * Get flight by flight number.
-     */
     public Flight getFlightByNumber(String flightNumber) throws SQLException {
         return flightDAO.findByFlightNumber(flightNumber);
     }
 
-    /**
-     * Get all flights.
-     */
     public List<Flight> getAllFlights() throws SQLException {
         return flightDAO.findAll();
     }
@@ -239,25 +204,16 @@ public class AdminService {
         }
     }
 
-    // ============================================================
-    // Aircraft Management
-    // ============================================================
-
-    /**
-     * Add a new aircraft.
-     */
     public Aircraft addAircraft(Aircraft aircraft) throws SQLException {
         validateAircraft(aircraft);
         return aircraftDAO.save(aircraft);
     }
 
     /**
-     * Update aircraft details and update related flights when status changes.
-     *
-     * Status transitions:
-     * - ACTIVE: restore DELAYED/CANCELLED flights to SCHEDULED
-     * - MAINTENANCE: SCHEDULED/CANCELLED → DELAYED
-     * - INACTIVE: SCHEDULED/DELAYED → CANCELLED
+     * Update aircraft and auto-update related flights:
+     * ACTIVE -> restore flights to SCHEDULED
+     * MAINTENANCE -> flights become DELAYED
+     * INACTIVE -> flights become CANCELLED
      */
     public boolean updateAircraft(Aircraft aircraft) throws SQLException {
         if (aircraft == null || aircraft.getAircraftId() <= 0) {
@@ -287,9 +243,6 @@ public class AdminService {
         return true;
     }
 
-    /**
-     * Update all upcoming flights for an aircraft based on status change.
-     */
     private void updateRelatedFlights(int aircraftId, String oldStatus, String newStatus) throws SQLException {
         List<Flight> flights = flightDAO.findByAircraftId(aircraftId);
         if (flights.isEmpty()) {
@@ -361,7 +314,7 @@ public class AdminService {
     }
 
     /**
-     * Remove an aircraft (cascading delete of flights and their dependencies).
+     * Delete aircraft with cascading deletes: flights -> tickets -> reservations -> seats -> aircraft
      */
     public boolean removeAircraft(int aircraftId) throws SQLException {
         List<Flight> flights = flightDAO.findByAircraftId(aircraftId);
@@ -423,9 +376,6 @@ public class AdminService {
         }
     }
 
-    /**
-     * Get all aircraft.
-     */
     public List<Aircraft> getAllAircraft() throws SQLException {
         return aircraftDAO.findAll();
     }
@@ -445,10 +395,6 @@ public class AdminService {
         }
     }
 
-    // ============================================================
-    // Airline Management
-    // ============================================================
-
     public Airline addAirline(Airline airline) throws SQLException {
         if (airline == null) {
             throw new IllegalArgumentException("Airline is required");
@@ -464,7 +410,7 @@ public class AdminService {
     }
 
     /**
-     * Remove an airline with cascading deletes of flights and their dependencies.
+     * Delete airline with cascading deletes: flights -> tickets -> reservations -> seats -> airline
      */
     public boolean removeAirline(int airlineId) throws SQLException {
         List<Flight> flights = flightDAO.findByAirlineId(airlineId);
@@ -526,16 +472,9 @@ public class AdminService {
         }
     }
 
-    /**
-     * Get all airlines.
-     */
     public List<Airline> getAllAirlines() throws SQLException {
         return airlineDAO.findAll();
     }
-
-    // ============================================================
-    // Airport Management
-    // ============================================================
 
     public Airport addAirport(Airport airport) throws SQLException {
         if (airport == null) {
@@ -555,8 +494,7 @@ public class AdminService {
     }
 
     /**
-     * Remove an airport with cascading deletes:
-     * routes using this airport, then flights on those routes, and their dependencies.
+     * Delete airport with cascading deletes: routes -> flights -> tickets -> reservations -> seats -> airport
      */
     public boolean removeAirport(String airportCode) throws SQLException {
         List<Route> routes = routeDAO.findByAirportCode(airportCode);
@@ -627,10 +565,6 @@ public class AdminService {
     public List<Airport> getAllAirports() throws SQLException {
         return airportDAO.findAll();
     }
-
-    // ============================================================
-    // Route Management
-    // ============================================================
 
     public Route addRoute(Route route) throws SQLException {
         if (route == null) {
@@ -738,10 +672,6 @@ public class AdminService {
         return routeDAO.findAll();
     }
 
-    // ============================================================
-    // User / Admin Management
-    // ============================================================
-
     public List<User> getAllUsers() throws SQLException {
         return userDAO.findAll();
     }
@@ -780,10 +710,6 @@ public class AdminService {
         return null;
     }
 
-    // ============================================================
-    // Reservation & Payment Management / Reporting
-    // ============================================================
-
     public List<Reservation> getAllReservations() throws SQLException {
         return reservationDAO.findAll();
     }
@@ -803,9 +729,6 @@ public class AdminService {
         return paymentDAO.findAll();
     }
 
-    // ============================================================
-    // Helper methods
-    // ============================================================
 
     /**
      * Helper to get flight_id by flight number.

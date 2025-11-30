@@ -9,10 +9,8 @@ import javax.swing.*;
 import java.awt.*;
 
 /**
- * Main dashboard for system administrators.
- * Acts as a navigation hub - no database queries are executed here.
- * Routes administrators to different management screens (Flights, Aircraft, Airlines, etc.)
- * where AdminService methods are called to perform database operations.
+ * Admin dashboard - navigation hub for all admin management screens.
+ * All database operations happen in the individual management views via AdminService.
  */
 public class AdminDashboardView extends JPanel {
     
@@ -30,15 +28,12 @@ public class AdminDashboardView extends JPanel {
         gbc.gridx = 0;
         gbc.gridy = 0;
         
-        // Title
         JLabel title = new JLabel("Admin Dashboard");
         title.setFont(new Font("Arial", Font.BOLD, 28));
-        gbc.gridy = 0;
         gbc.gridwidth = 2;
         add(title, gbc);
         gbc.gridwidth = 1;
         
-        // Welcome message
         User currentUser = viewManager.getCurrentUser();
         String welcomeMessage = "Welcome, Administrator!";
         if (currentUser != null && currentUser.getUsername() != null) {
@@ -51,19 +46,16 @@ public class AdminDashboardView extends JPanel {
         gbc.insets = new Insets(10, 15, 30, 15);
         add(welcomeLabel, gbc);
         
-        // Management options label
         JLabel optionsLabel = new JLabel("Management Options:");
         optionsLabel.setFont(new Font("Arial", Font.BOLD, 16));
         gbc.gridy = 2;
         gbc.insets = new Insets(20, 15, 15, 15);
         add(optionsLabel, gbc);
         
-        // Navigation buttons panel
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
         buttonPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
         
-        // Manage Flights button
         JButton manageFlightsBtn = new JButton("Manage Flights");
         manageFlightsBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         manageFlightsBtn.setPreferredSize(new Dimension(250, 40));
@@ -76,7 +68,6 @@ public class AdminDashboardView extends JPanel {
         buttonPanel.add(manageFlightsBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
-        // Manage Aircraft button
         JButton manageAircraftBtn = new JButton("Manage Aircraft");
         manageAircraftBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         manageAircraftBtn.setPreferredSize(new Dimension(250, 40));
@@ -89,7 +80,6 @@ public class AdminDashboardView extends JPanel {
         buttonPanel.add(manageAircraftBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
-        // Manage Airlines button
         JButton manageAirlinesBtn = new JButton("Manage Airlines");
         manageAirlinesBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         manageAirlinesBtn.setPreferredSize(new Dimension(250, 40));
@@ -102,7 +92,6 @@ public class AdminDashboardView extends JPanel {
         buttonPanel.add(manageAirlinesBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
-        // Manage Airports button
         JButton manageAirportsBtn = new JButton("Manage Airports");
         manageAirportsBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         manageAirportsBtn.setPreferredSize(new Dimension(250, 40));
@@ -115,7 +104,6 @@ public class AdminDashboardView extends JPanel {
         buttonPanel.add(manageAirportsBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
-        // Manage Routes button
         JButton manageRoutesBtn = new JButton("Manage Routes");
         manageRoutesBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         manageRoutesBtn.setPreferredSize(new Dimension(250, 40));
@@ -128,7 +116,6 @@ public class AdminDashboardView extends JPanel {
         buttonPanel.add(manageRoutesBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
-        // Reports button
         JButton reportsBtn = new JButton("Reports");
         reportsBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         reportsBtn.setPreferredSize(new Dimension(250, 40));
@@ -141,7 +128,6 @@ public class AdminDashboardView extends JPanel {
         buttonPanel.add(reportsBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
-        // Back to Main Dashboard button
         JButton backToMainBtn = new JButton("Back to Main Dashboard");
         backToMainBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         backToMainBtn.setPreferredSize(new Dimension(250, 40));
@@ -154,21 +140,17 @@ public class AdminDashboardView extends JPanel {
         buttonPanel.add(backToMainBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
-        // Logout button
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         logoutBtn.setPreferredSize(new Dimension(250, 40));
         logoutBtn.setMaximumSize(new Dimension(250, 40));
         logoutBtn.setFont(new Font("Arial", Font.PLAIN, 16));
         logoutBtn.addActionListener(e -> {
-            // Clear session data
             viewManager.logout();
-            // Navigate to login
             viewManager.showView("LOGIN", new LoginView(viewManager));
         });
         buttonPanel.add(logoutBtn);
         
-        // Add button panel to main layout
         gbc.gridy = 3;
         gbc.insets = new Insets(20, 15, 15, 15);
         add(buttonPanel, gbc);

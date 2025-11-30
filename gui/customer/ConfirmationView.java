@@ -6,7 +6,6 @@ import businesslogic.entities.Seat;
 import businesslogic.entities.Flight;
 import businesslogic.entities.Payment;
 import businesslogic.entities.Customer;
-import businesslogic.services.PaymentService;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -360,9 +359,7 @@ public class ConfirmationView extends JPanel {
         // Back to Dashboard button
         JButton dashboardBtn = new JButton("Back to Dashboard");
         dashboardBtn.setPreferredSize(new Dimension(180, 40));
-        dashboardBtn.setFont(new Font("Arial", Font.BOLD, 14));
-        dashboardBtn.setBackground(new Color(66, 139, 202));
-        dashboardBtn.setForeground(Color.WHITE);
+        dashboardBtn.setFont(new Font("Arial", Font.PLAIN, 14));
         dashboardBtn.addActionListener(e -> {
             viewManager.showView("CUSTOMER_DASHBOARD", new CustomerDashboardView(viewManager));
         });

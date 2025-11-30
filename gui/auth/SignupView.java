@@ -8,6 +8,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.sql.SQLException;
 
+/**
+ * Customer registration form.
+ * Creates new customer accounts via CustomerService.
+ */
 public class SignupView extends JPanel {
 
     private ViewManager viewManager;
@@ -15,10 +19,7 @@ public class SignupView extends JPanel {
 
     public SignupView(ViewManager viewManager) {
         this.viewManager = viewManager;
-
-        // Get CustomerService
         this.customerService = viewManager.getCustomerService();
-
         setLayout(new GridBagLayout());
 
         JLabel title = new JLabel("Create Account");
@@ -41,11 +42,9 @@ public class SignupView extends JPanel {
         gbc.fill = GridBagConstraints.NONE;
         gbc.weightx = 0;
 
-        // TITLE
         add(title, gbc);
 
-        // Utility method to add label + field in same formatting
-        gbc.ipadx = 200; // Same width as LoginView text fields
+        gbc.ipadx = 200;
 
         gbc.gridy++;
         gbc.ipadx = 0;
@@ -95,7 +94,6 @@ public class SignupView extends JPanel {
         gbc.ipadx = 200;
         add(confirmPasswordField, gbc);
 
-        // Buttons — no expansion
         gbc.gridy++;
         gbc.ipadx = 0;
         add(createBtn, gbc);
@@ -103,7 +101,6 @@ public class SignupView extends JPanel {
         gbc.gridy++;
         add(backBtn, gbc);
 
-        // Sign up button action
         createBtn.addActionListener(e -> {
             String username = usernameField.getText().trim();
             String email = emailField.getText().trim();
