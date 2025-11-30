@@ -12,6 +12,8 @@ import java.awt.*;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
@@ -155,6 +157,34 @@ public class SeatSelectionView extends JPanel {
     }
     
     /**
+     * Extract the row number from a seat number (e.g., "9B" -> 9, "17A" -> 17).
+     *
+     * @param seatNumber The seat number string
+     * @return The row number as an integer, or 0 if parsing fails
+     */
+    private int extractRowNumber(String seatNumber) {
+        String num = seatNumber.replaceAll("[^0-9]", "");
+        if (num.isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(num);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+    
+    /**
+     * Extract the seat letter from a seat number (e.g., "9B" -> "B", "17A" -> "A").
+     *
+     * @param seatNumber The seat number string
+     * @return The seat letter(s)
+     */
+    private String extractSeatLetter(String seatNumber) {
+        return seatNumber.replaceAll("[0-9]", "");
+    }
+    
+    /**
      * Load available seats for the flight using ReservationService.
      */
     private void loadSeats() {
@@ -173,17 +203,14 @@ public class SeatSelectionView extends JPanel {
             // Group seats by class
             List<Seat> economySeats = allSeats.stream()
                 .filter(s -> s.getSeatClass() == SeatClass.ECONOMY)
-                .sorted((s1, s2) -> s1.getSeatNumber().compareTo(s2.getSeatNumber()))
                 .collect(Collectors.toList());
             
             List<Seat> businessSeats = allSeats.stream()
                 .filter(s -> s.getSeatClass() == SeatClass.BUSINESS)
-                .sorted((s1, s2) -> s1.getSeatNumber().compareTo(s2.getSeatNumber()))
                 .collect(Collectors.toList());
             
             List<Seat> firstSeats = allSeats.stream()
                 .filter(s -> s.getSeatClass() == SeatClass.FIRST)
-                .sorted((s1, s2) -> s1.getSeatNumber().compareTo(s2.getSeatNumber()))
                 .collect(Collectors.toList());
             
             GridBagConstraints gbc = new GridBagConstraints();
@@ -213,6 +240,7 @@ public class SeatSelectionView extends JPanel {
     
     /**
      * Add a section of seats for a specific class.
+     * Groups seats by row number and displays each row on its own line.
      */
     private void addSeatClassSection(String className, List<Seat> seats, GridBagConstraints gbc) {
         // Class label
@@ -225,24 +253,48 @@ public class SeatSelectionView extends JPanel {
         gbc.gridy++;
         gbc.gridwidth = 1;
         
-        // Seat buttons in a grid
-        int seatsPerRow = 6; // Adjust based on your preference
-        int currentRow = gbc.gridy;
-        int currentCol = 0;
+        // Group seats by row number using TreeMap to keep rows sorted
+        Map<Integer, List<Seat>> seatsByRow = seats.stream()
+            .collect(Collectors.groupingBy(
+                s -> extractRowNumber(s.getSeatNumber()),
+                TreeMap::new,
+                Collectors.toList()
+            ));
         
-        for (Seat seat : seats) {
-            gbc.gridx = currentCol;
+        int currentRow = gbc.gridy;
+        
+        // Iterate through each row in order
+        for (Map.Entry<Integer, List<Seat>> entry : seatsByRow.entrySet()) {
+            List<Seat> rowSeats = entry.getValue();
+            
+            // Sort seats within the row by letter (A, B, C, D, E, F)
+            rowSeats.sort((s1, s2) -> {
+                String letter1 = extractSeatLetter(s1.getSeatNumber());
+                String letter2 = extractSeatLetter(s2.getSeatNumber());
+                return letter1.compareTo(letter2);
+            });
+            
+            // Add row label on the left
+            gbc.gridx = 0;
             gbc.gridy = currentRow;
-            gbc.anchor = GridBagConstraints.CENTER;
+            gbc.anchor = GridBagConstraints.EAST;
+            JLabel rowLabel = new JLabel("Row " + entry.getKey() + ": ");
+            rowLabel.setFont(new Font("Arial", Font.PLAIN, 11));
+            seatMapPanel.add(rowLabel, gbc);
             
-            JButton seatBtn = createSeatButton(seat);
-            seatMapPanel.add(seatBtn, gbc);
-            
-            currentCol++;
-            if (currentCol >= seatsPerRow) {
-                currentCol = 0;
-                currentRow++;
+            // Add seat buttons for this row
+            int currentCol = 1; // Start after row label
+            for (Seat seat : rowSeats) {
+                gbc.gridx = currentCol;
+                gbc.gridy = currentRow;
+                gbc.anchor = GridBagConstraints.CENTER;
+                
+                JButton seatBtn = createSeatButton(seat);
+                seatMapPanel.add(seatBtn, gbc);
+                currentCol++;
             }
+            
+            currentRow++;
         }
         
         gbc.gridy = currentRow + 1;
