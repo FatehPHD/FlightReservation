@@ -1,4 +1,6 @@
 -- schema.sql
+-- Flight Reservation System Database Schema
+-- Includes Monthly Promotion News subscription support
 
 -- 1) Create database
 CREATE DATABASE IF NOT EXISTS flight_booking_system
@@ -23,6 +25,9 @@ CREATE TABLE IF NOT EXISTS users (
     address           VARCHAR(255),
     date_of_birth     DATE,
     membership_status ENUM('REGULAR', 'SILVER', 'GOLD', 'PLATINUM'),
+    
+    -- Monthly Promotion News subscription (for customers)
+    subscribed_to_promotions BOOLEAN DEFAULT TRUE,
 
     -- FlightAgent-only fields
     employee_id       VARCHAR(50),
@@ -178,11 +183,45 @@ CREATE TABLE IF NOT EXISTS tickets (
 );
 
 -- PROMOTION
+-- Stores promotional offers for monthly promotion news
 CREATE TABLE IF NOT EXISTS promotions (
     promotion_id     BIGINT AUTO_INCREMENT PRIMARY KEY,
-    title           VARCHAR(100) NOT NULL,
-    description     VARCHAR(255),
+    title            VARCHAR(100) NOT NULL,
+    description      VARCHAR(255),
     discount_percent DECIMAL(5,2) NOT NULL,
-    valid_from      DATE NOT NULL,
-    valid_to        DATE NOT NULL
+    valid_from       DATE NOT NULL,
+    valid_to         DATE NOT NULL,
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active        BOOLEAN DEFAULT TRUE
 );
+
+-- PROMOTION_ROUTES (Optional: Link promotions to specific routes)
+CREATE TABLE IF NOT EXISTS promotion_routes (
+    promotion_id BIGINT NOT NULL,
+    route_id     BIGINT NOT NULL,
+    PRIMARY KEY (promotion_id, route_id),
+    CONSTRAINT fk_promo_routes_promotion
+        FOREIGN KEY (promotion_id) REFERENCES promotions(promotion_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_promo_routes_route
+        FOREIGN KEY (route_id) REFERENCES routes(route_id)
+        ON DELETE CASCADE
+);
+
+-- PROMOTION_NEWS_LOG (Track when monthly news was sent)
+CREATE TABLE IF NOT EXISTS promotion_news_log (
+    log_id        BIGINT AUTO_INCREMENT PRIMARY KEY,
+    sent_date     DATE NOT NULL,
+    customer_id   BIGINT NOT NULL,
+    promotion_ids VARCHAR(255),
+    status        ENUM('SENT', 'FAILED') NOT NULL,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_news_log_customer
+        FOREIGN KEY (customer_id) REFERENCES users(user_id)
+        ON DELETE CASCADE
+);
+
+-- Create indexes for faster queries
+CREATE INDEX idx_promotions_valid_dates ON promotions(valid_from, valid_to);
+CREATE INDEX idx_users_role_subscribed ON users(role, subscribed_to_promotions);
+CREATE INDEX idx_news_log_date ON promotion_news_log(sent_date);

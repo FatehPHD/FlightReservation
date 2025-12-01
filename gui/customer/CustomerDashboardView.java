@@ -15,7 +15,7 @@ import java.awt.*;
 /**
  * Main dashboard shown after login.
  * Displays role-specific navigation buttons (Admin/Agent dashboards for those roles).
- * All users can access flight search, reservations, and profile.
+ * All users can access flight search, reservations, profile, and promotions.
  */
 public class CustomerDashboardView extends JPanel {
     
@@ -119,6 +119,19 @@ public class CustomerDashboardView extends JPanel {
         buttonPanel.add(myReservationsBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
+        // Monthly Promotions button
+        JButton promotionsBtn = new JButton("Monthly Promotions");
+        promotionsBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        promotionsBtn.setPreferredSize(new Dimension(250, 40));
+        promotionsBtn.setMaximumSize(new Dimension(250, 40));
+        promotionsBtn.setFont(new Font("Arial", Font.PLAIN, 16));
+        promotionsBtn.addActionListener(e -> {
+            viewManager.showView("PROMOTION_NEWS", 
+                new PromotionNewsView(viewManager));
+        });
+        buttonPanel.add(promotionsBtn);
+        buttonPanel.add(Box.createVerticalStrut(15));
+        
         JButton profileBtn = new JButton("Profile");
         profileBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         profileBtn.setPreferredSize(new Dimension(250, 40));
@@ -149,4 +162,3 @@ public class CustomerDashboardView extends JPanel {
         add(buttonPanel, gbc);
     }
 }
-

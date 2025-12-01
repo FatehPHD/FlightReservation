@@ -9,8 +9,8 @@ import javax.swing.*;
 import java.awt.*;
 
 /**
- * Admin dashboard - navigation hub for all admin management screens.
- * All database operations happen in the individual management views via AdminService.
+ * Admin dashboard with management options.
+ * Includes: Flights, Aircraft, Airlines, Airports, Routes, Promotions, Reports.
  */
 public class AdminDashboardView extends JPanel {
     
@@ -30,12 +30,10 @@ public class AdminDashboardView extends JPanel {
         
         JLabel title = new JLabel("Admin Dashboard");
         title.setFont(new Font("Arial", Font.BOLD, 28));
-        gbc.gridwidth = 2;
         add(title, gbc);
-        gbc.gridwidth = 1;
         
         User currentUser = viewManager.getCurrentUser();
-        String welcomeMessage = "Welcome, Administrator!";
+        String welcomeMessage = "Welcome, admin!";
         if (currentUser != null && currentUser.getUsername() != null) {
             welcomeMessage = "Welcome, " + currentUser.getUsername() + "!";
         }
@@ -114,6 +112,19 @@ public class AdminDashboardView extends JPanel {
                 new ManageRoutesView(viewManager));
         });
         buttonPanel.add(manageRoutesBtn);
+        buttonPanel.add(Box.createVerticalStrut(15));
+        
+        // Manage Promotions button (for Monthly Promotion News feature)
+        JButton managePromotionsBtn = new JButton("Manage Promotions");
+        managePromotionsBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        managePromotionsBtn.setPreferredSize(new Dimension(250, 40));
+        managePromotionsBtn.setMaximumSize(new Dimension(250, 40));
+        managePromotionsBtn.setFont(new Font("Arial", Font.PLAIN, 16));
+        managePromotionsBtn.addActionListener(e -> {
+            viewManager.showView("MANAGE_PROMOTIONS", 
+                new ManagePromotionsView(viewManager));
+        });
+        buttonPanel.add(managePromotionsBtn);
         buttonPanel.add(Box.createVerticalStrut(15));
         
         JButton reportsBtn = new JButton("Reports");

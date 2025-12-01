@@ -5,6 +5,7 @@ import businesslogic.services.FlightService;
 import businesslogic.services.ReservationService;
 import businesslogic.services.PaymentService;
 import businesslogic.services.AdminService;
+import businesslogic.services.PromotionService;
 import datalayer.dao.*;
 import datalayer.impl.*;
 
@@ -21,6 +22,7 @@ public class ServiceManager {
     private ReservationService reservationService;
     private PaymentService paymentService;
     private AdminService adminService;
+    private PromotionService promotionService;
     
     public ServiceManager() throws SQLException {
         UserDAO userDAO = new UserDAOImpl();
@@ -32,6 +34,7 @@ public class ServiceManager {
         AirlineDAO airlineDAO = new AirlineDAOImpl();
         AirportDAO airportDAO = new AirportDAOImpl();
         RouteDAO routeDAO = new RouteDAOImpl();
+        PromotionDAO promotionDAO = new PromotionDAOImpl();
         
         this.customerService = new CustomerService(userDAO, reservationDAO);
         this.flightService = new FlightService(flightDAO, airportDAO);
@@ -39,6 +42,7 @@ public class ServiceManager {
         this.paymentService = new PaymentService(paymentDAO);
         this.adminService = new AdminService(flightDAO, aircraftDAO, airlineDAO, 
                                            airportDAO, routeDAO, userDAO, seatDAO, reservationDAO, paymentDAO);
+        this.promotionService = new PromotionService(promotionDAO, userDAO);
     }
     
     public CustomerService getCustomerService() {
@@ -60,5 +64,8 @@ public class ServiceManager {
     public AdminService getAdminService() {
         return adminService;
     }
+    
+    public PromotionService getPromotionService() {
+        return promotionService;
+    }
 }
-
