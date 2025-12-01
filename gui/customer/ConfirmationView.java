@@ -81,13 +81,6 @@ public class ConfirmationView extends JPanel {
             BorderFactory.createEmptyBorder(20, 20, 20, 20)
         ));
         
-        // Success icon and title
-        JLabel successIcon = new JLabel("✓");
-        successIcon.setFont(new Font("Arial", Font.BOLD, 48));
-        successIcon.setForeground(new Color(46, 139, 87));
-        successIcon.setAlignmentX(Component.CENTER_ALIGNMENT);
-        panel.add(successIcon);
-        
         JLabel titleLabel = new JLabel("Booking Confirmed!");
         titleLabel.setFont(new Font("Arial", Font.BOLD, 28));
         titleLabel.setForeground(new Color(46, 139, 87));
@@ -339,13 +332,6 @@ public class ConfirmationView extends JPanel {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        
-        // Print button
-        JButton printBtn = new JButton("Print Confirmation");
-        printBtn.setPreferredSize(new Dimension(180, 40));
-        printBtn.setFont(new Font("Arial", Font.PLAIN, 14));
-        printBtn.addActionListener(e -> printConfirmation());
-        panel.add(printBtn);
         
         // Book Another Flight button
         JButton bookAnotherBtn = new JButton("Book Another Flight");
