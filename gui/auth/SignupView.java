@@ -3,6 +3,7 @@ package gui.auth;
 import gui.common.ViewManager;
 import businesslogic.services.CustomerService;
 import businesslogic.entities.Customer;
+import businesslogic.entities.enums.UserRole;
 
 import javax.swing.*;
 import java.awt.*;
@@ -109,18 +110,18 @@ public class SignupView extends JPanel {
             String pass = new String(passwordField.getPassword());
             String confirm = new String(confirmPasswordField.getPassword());
 
-            if (username.isEmpty() || email.isEmpty() || firstName.isEmpty() ||
+            if (username.isEmpty() || email.isEmpty() || firstName.isEmpty() || 
                 lastName.isEmpty() || pass.isEmpty()) {
-                JOptionPane.showMessageDialog(this,
+                JOptionPane.showMessageDialog(this, 
                         "Please fill all required fields.", "Error",
-                        JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
             if (!pass.equals(confirm)) {
                 JOptionPane.showMessageDialog(this,
-                        "Passwords do not match!", "Error",
-                        JOptionPane.ERROR_MESSAGE);
+                    "Passwords do not match!", "Error",
+                    JOptionPane.ERROR_MESSAGE);
                 passwordField.setText("");
                 confirmPasswordField.setText("");
                 return;
@@ -128,31 +129,31 @@ public class SignupView extends JPanel {
 
             if (pass.length() < 4) {
                 JOptionPane.showMessageDialog(this,
-                        "Password must be at least 4 characters long.", "Error",
-                        JOptionPane.ERROR_MESSAGE);
+                    "Password must be at least 4 characters long.", "Error",
+                    JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
             try {
                 Customer customer = customerService.createCustomer(
-                        username, pass, email, firstName, lastName,
+                    username, pass, email, firstName, lastName, 
                         null, null, null
                 );
-
+                
                 JOptionPane.showMessageDialog(this,
                         "Account created successfully! Welcome, " + customer.getFirstName() + ".",
                         "Success", JOptionPane.INFORMATION_MESSAGE);
-
-                viewManager.showView("LOGIN", new LoginView(viewManager));
-
+                
+                viewManager.showView("LOGIN", new LoginView(viewManager, UserRole.CUSTOMER));
+                
             } catch (IllegalStateException ex) {
                 JOptionPane.showMessageDialog(this,
                         "Username already exists. Please choose a different one.",
                         "Error", JOptionPane.ERROR_MESSAGE);
             } catch (IllegalArgumentException ex) {
                 JOptionPane.showMessageDialog(this,
-                        ex.getMessage(), "Error",
-                        JOptionPane.ERROR_MESSAGE);
+                    ex.getMessage(), "Error",
+                    JOptionPane.ERROR_MESSAGE);
             } catch (SQLException ex) {
                 JOptionPane.showMessageDialog(this,
                         "Database error: " + ex.getMessage(),
@@ -161,7 +162,7 @@ public class SignupView extends JPanel {
         });
 
         backBtn.addActionListener(e -> {
-            viewManager.showView("LOGIN", new LoginView(viewManager));
+            viewManager.showView("LOGIN", new LoginView(viewManager, UserRole.CUSTOMER));
         });
     }
 }

@@ -1,7 +1,6 @@
 package gui.agent;
 
 import gui.common.ViewManager;
-import gui.customer.CustomerDashboardView;
 import businesslogic.entities.User;
 
 import javax.swing.*;
@@ -74,18 +73,6 @@ public class AgentDashboardView extends JPanel {
                 new ManageReservationsView(viewManager));
         });
         buttonPanel.add(manageReservationsBtn);
-        buttonPanel.add(Box.createVerticalStrut(15));
-        
-        JButton backToMainBtn = new JButton("Back to Main Dashboard");
-        backToMainBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        backToMainBtn.setPreferredSize(new Dimension(250, 40));
-        backToMainBtn.setMaximumSize(new Dimension(250, 40));
-        backToMainBtn.setFont(new Font("Arial", Font.PLAIN, 16));
-        backToMainBtn.addActionListener(e -> {
-            viewManager.showView("CUSTOMER_DASHBOARD", 
-                new CustomerDashboardView(viewManager));
-        });
-        buttonPanel.add(backToMainBtn);
         
         gbc.gridy = 3;
         gbc.insets = new Insets(20, 15, 15, 15);

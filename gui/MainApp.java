@@ -1,6 +1,6 @@
 package gui;
 
-import gui.auth.LoginView;
+import gui.auth.RoleSelectionView;
 import gui.common.ViewManager;
 import gui.common.ServiceManager;
 
@@ -11,6 +11,7 @@ import java.sql.SQLException;
 /**
  * Main application entry point.
  * Initializes services and sets up the GUI with CardLayout navigation.
+ * Starts with role selection view.
  */
 public class MainApp extends JFrame {
 
@@ -38,7 +39,7 @@ public class MainApp extends JFrame {
         contentPane.setLayout(cardLayout);
 
         viewManager = new ViewManager(cardLayout, contentPane, serviceManager);
-        viewManager.showView("LOGIN", new LoginView(viewManager));
+        viewManager.showView("ROLE_SELECTION", new RoleSelectionView(viewManager));
 
         setVisible(true);
     }

@@ -1,21 +1,18 @@
 package gui.customer;
 
 import gui.common.ViewManager;
-import gui.auth.LoginView;
-import gui.admin.AdminDashboardView;
-import gui.agent.AgentDashboardView;
 import businesslogic.entities.Customer;
 import businesslogic.entities.User;
 import businesslogic.entities.enums.MembershipStatus;
-import businesslogic.entities.enums.UserRole;
 
 import javax.swing.*;
 import java.awt.*;
 
 /**
- * Main dashboard shown after login.
- * Displays role-specific navigation buttons (Admin/Agent dashboards for those roles).
+ * Main dashboard shown after login when Customer role is selected.
  * All users can access flight search, reservations, profile, and promotions.
+ * Admin and Agent users can access their respective dashboards by selecting
+ * their role before logging in.
  */
 public class CustomerDashboardView extends JPanel {
     
@@ -63,36 +60,6 @@ public class CustomerDashboardView extends JPanel {
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
         buttonPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        
-        UserRole userRole = currentUser != null ? currentUser.getRole() : null;
-        
-        if (userRole == UserRole.SYSTEM_ADMIN) {
-            JButton adminDashboardBtn = new JButton("Admin Dashboard");
-            adminDashboardBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-            adminDashboardBtn.setPreferredSize(new Dimension(250, 40));
-            adminDashboardBtn.setMaximumSize(new Dimension(250, 40));
-            adminDashboardBtn.setFont(new Font("Arial", Font.PLAIN, 16));
-            adminDashboardBtn.addActionListener(e -> {
-                viewManager.showView("ADMIN_DASHBOARD", 
-                    new AdminDashboardView(viewManager));
-            });
-            buttonPanel.add(adminDashboardBtn);
-            buttonPanel.add(Box.createVerticalStrut(15));
-        }
-        
-        if (userRole == UserRole.FLIGHT_AGENT) {
-            JButton agentDashboardBtn = new JButton("Agent Dashboard");
-            agentDashboardBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-            agentDashboardBtn.setPreferredSize(new Dimension(250, 40));
-            agentDashboardBtn.setMaximumSize(new Dimension(250, 40));
-            agentDashboardBtn.setFont(new Font("Arial", Font.PLAIN, 16));
-            agentDashboardBtn.addActionListener(e -> {
-                viewManager.showView("AGENT_DASHBOARD", 
-                    new AgentDashboardView(viewManager));
-            });
-            buttonPanel.add(agentDashboardBtn);
-            buttonPanel.add(Box.createVerticalStrut(15));
-        }
         
         JButton searchFlightsBtn = new JButton("Search Flights");
         searchFlightsBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -153,7 +120,7 @@ public class CustomerDashboardView extends JPanel {
         logoutBtn.setFont(new Font("Arial", Font.PLAIN, 16));
         logoutBtn.addActionListener(e -> {
             viewManager.logout();
-            viewManager.showView("LOGIN", new LoginView(viewManager));
+            viewManager.showView("ROLE_SELECTION", new gui.auth.RoleSelectionView(viewManager));
         });
         buttonPanel.add(logoutBtn);
         
